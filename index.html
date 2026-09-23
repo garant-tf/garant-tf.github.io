@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Мониторинг отчётов</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Consolas, "Microsoft YaHei", monospace;
+    font-size: 13px;
+    margin: 0;
+    background: #f4f5f7;
+    color: #222;
+  }
+  header {
+    background: #2c3e50;
+    color: #fff;
+    padding: 12px 20px;
+  }
+  header h1 { margin: 0 0 4px 0; font-size: 20px; }
+  header .meta { font-size: 12px; opacity: 0.8; }
+
+  .layout { display: flex; align-items: flex-start; }
+  .sidebar {
+    width: 260px;
+    padding: 12px;
+    background: #eef1f5;
+    border-right: 1px solid #d5d9e0;
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow: auto;
+  }
+  .sidebar h2 { font-size: 14px; margin: 0 0 8px 0; }
+  .sidebar ul { list-style: none; padding-left: 0; margin: 0; }
+  .sidebar li { margin: 3px 0; }
+  .sidebar a { color: #2c3e50; text-decoration: none; font-size: 13px; }
+  .sidebar a:hover { text-decoration: underline; }
+  .toc-sections { padding-left: 16px !important; }
+  .toc-sections a { color: #555; font-size: 12px; }
+
+  .content { flex: 1; padding: 12px 20px; min-width: 0; }
+
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-bottom: 2px solid #2c3e50;
+    margin-bottom: 12px;
+    scrollbar-width: thin;
+  }
+  .tab {
+    flex: 0 0 auto;
+    border: 1px solid #d5d9e0;
+    border-bottom: none;
+    background: #e8ebf0;
+    color: #333;
+    padding: 8px 16px;
+    margin-right: 4px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-size: 13px;
+  }
+  .tab:hover { background: #dde2ea; }
+  .tab.active {
+    background: #fff;
+    color: #2c3e50;
+    font-weight: bold;
+    border-color: #2c3e50;
+    position: relative;
+    top: 2px;
+  }
+
+  .toolbar { margin: 8px 0 12px 0; }
+  .toolbar button {
+    background: #2c3e50;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    margin-right: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .toolbar button:hover { background: #3d566e; }
+
+  .pane { display: none; }
+  .pane.active { display: block; }
+
+  details.section {
+    border: 1px solid #d5d9e0;
+    border-radius: 6px;
+    margin: 6px 0;
+    background: #fff;
+  }
+  details.section > summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    font-weight: bold;
+    background: #f7f9fc;
+    border-radius: 6px;
+    user-select: none;
+  }
+  details.section[open] > summary {
+    border-bottom: 1px solid #e5e9ef;
+    border-radius: 6px 6px 0 0;
+  }
+  summary .cnt { color: #888; font-weight: normal; font-size: 12px; }
+
+  .section-body {
+    max-height: 500px;
+    overflow: auto;
+    padding: 8px 12px;
+  }
+
+  .line {
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 1px 0;
+    font-family: Consolas, "Microsoft YaHei", monospace;
+    line-height: 1.35;
+  }
+  .line.meta {
+    background: #f0f2f5;
+    color: #555;
+    border-left: 3px solid #b8bfc9;
+    padding-left: 6px;
+  }
+
+  .error-box {
+    background: #fdecea;
+    border: 1px solid #f5c2c0;
+    color: #a02020;
+    padding: 10px 12px;
+    border-radius: 6px;
+  }
+
+  .path-info {
+    font-size: 11px;
+    color: #666;
+    margin: 4px 0 8px 0;
+    padding: 3px 8px;
+    background: #eef1f5;
+    border-radius: 4px;
+    word-break: break-all;
+  }
+
+  @media (max-width: 800px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; position: static; max-height: none; border-right: none; border-bottom: 1px solid #d5d9e0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Мониторинг отчётов</h1>
+  <div class="meta">Сформировано: 2026-09-23 10:28:05</div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Содержание</h2>
+    <ul>
+<li><a href="#" data-target="pane-0" class="toc-report">Сводный отчёт по серверам</a>
+<ul class="toc-sections">
+  <li><a href="#anchor-2" class="toc-section">Archi_AutoPipeServer</a></li>
+  <li><a href="#anchor-3" class="toc-section">ArchiRegion_AutoPipeServer</a></li>
+  <li><a href="#anchor-4" class="toc-section">GarantMain_Download</a></li>
+  <li><a href="#anchor-5" class="toc-section">GarantMain_Update</a></li>
+  <li><a href="#anchor-6" class="toc-section">GarantReserv_Download</a></li>
+  <li><a href="#anchor-7" class="toc-section">GarantReserv_Update</a></li>
+</ul>
+</li>
+<li><a href="#" data-target="pane-1" class="toc-report">Журнал проверок</a>
+<ul class="toc-sections">
+  <li><a href="#anchor-8" class="toc-section">Секция 1</a></li>
+</ul>
+</li>
+
+    </ul>
+  </aside>
+
+  <main class="content">
+    <div class="tabs" id="tabs">
+  <button class="tab active" data-tab="pane-0">Сводный отчёт по серверам</button>
+  <button class="tab" data-tab="pane-1">Журнал проверок</button>
+  <button class="tab" data-tab="pane-2">Простой лог</button>
+
+    </div>
+
+    <div class="toolbar">
+      <button type="button" id="btn-expand">Развернуть всё</button>
+      <button type="button" id="btn-collapse">Свернуть всё</button>
+    </div>
+
+<div class="pane active" id="pane-0">
+  <div class="path-info">Маска: e:\Utils_Scripts\CheckLog\reports\logs_*.txt → E:\Utils_Scripts\CheckLog\reports\logs_2026-09-21_07-33-56.txt</div>
+<details class="section" open id="anchor-1">
+  <summary>Начало отчёта <span class="cnt">(3)</span></summary>
+  <div class="section-body">
+<div class="line">Log report generated: 2026-09-21 07:33:56</div>
+<div class="line">======================================================================</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-2">
+  <summary>Archi_AutoPipeServer <span class="cnt">(157)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== Archi_AutoPipeServer =====</div>
+<div class="line">Path: \\10.214.28.6\D$\ARCHI\Alcu\AutoPipeServer.log</div>
+<div class="line">Изменён: 2026-09-21 07:30:04 (сегодня, 3 минуты назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line">  Required: Ежедневная процедура обновления базы завершена : найдено</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >  Keywords: TASKERROR × 0, ОШИБКА! × 0, ошибкой × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:512 Выполняется задание: Ежедневное обновление, запланированное на 21.09.2026 0:03:00</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:512 Добавление новой задачи: Ежедневное обновление</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:512 Задача добавлена 65000-21-09-2026-00-03-00-512 (3E89EE84) (TalcuSchedulerProxyTask) Ежедневное обновление</div>
+<div class="line">e.ARCHI1-TVR..0   21.09.2026 00:03:00:512 Task waiting Ежедневное обновление</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:559 Следующее задание: Индексация, запуск 21.09.2026 0:05:00</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:575 Удаление старой почты (сохраняются письма за последние 180 дней)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:00:575 Странный домашний каталог пользователя queries - пропущен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:06:513 Usr#1000036: 4 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:08:231 Usr#100003F: 1 письмо</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:11:059 Usr#1000049: 5 писем</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:11:169 Странный домашний каталог пользователя Usr#100006D_ - пропущен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:03:56:842 Usr#1000070: 47 писем</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:00:420 Usr#100007C: 3 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:02:873 Usr#10000D7: 2 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:04:951 Usr#10000D8: 3 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:15:483 Usr#10001DC: 8 писем</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:21:530 Usr#100023B: 5 писем</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:23:248 Usr#1000248: 1 письмо</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:27:014 Usr#100024C: 2 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:31:405 Usr#100024F: 1 письмо</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:34:202 Usr#1000250: 1 письмо</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:014 Usr#1000252: 3 письма</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:077 Странный домашний каталог пользователя _Usr#100000E - пропущен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:077 Всего удалено 86 писем</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:077 Проверка доступности базы...</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:077 * попытка выгнать пользователей</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:04:37:092 * Server 10.214.28.6(10.214.28.6)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:109 Принудительное закрытие сессий:</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:109 * обновляем список пользователей</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:109 * лочим базу</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:124 * разлочиваем базу</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:124 База доступна</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:124 Ежедневная процедура обновления базы</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:124 * упаковка нотификаций</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:07:202 * проверка свободного места</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:406 * переключение на временную базу</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:406 Переключение на временную базу</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:516 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:641   !! freeing tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:656   !! freed tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:656   !! destroing Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:656   !! destroed Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:656 Механизм остановлен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:688 Запуск механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:688 HyTech ver. 2.7.20.302 ht32db.dll</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:735 Start listening Name - 10.214.28.6 IP - 10.214.28.6 Port - 32100</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:750 Переключение на временную базу done</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:750 * сбрасываем лог</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:750 Сброс D:\ARCHI\Alcu\AutoPipeServer.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:750 Задание Индексация, запланированное на 21.09.2026 0:05:00 приостановлено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:17:813 Следующее задание: Дополнить справки, запуск 21.09.2026 1:00:00</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Не удалось удалить лог-файл</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 * сбрасываем лог Арчи</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 * сбрасываем лог контроллера</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcuServiceControl.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 * сбрасываем лог HyTech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс D:\ARCHI\Log\APS_HSHT\hsht.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 * сбрасываем логи alcuTaskExecutor</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcuTaskExecutor.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Удаление старых резервных копий</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_AnoncedExportTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_AutoClassTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_AutoExportTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_AutolinkerTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_CheckControlledQueries.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_DocumentControlTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_ExportTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_ImportTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_ProgExecTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_RegionAutoExportTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс alcu_RelPublishTask.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 Сброс m3DBCheck.log</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:016 * переливка кэша образов в постоянное хранилище</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:031 Кэш образов пуст, обработка не требуется.</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:031 * очистка папок экспорта</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:031 Очистка папок экспорта</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:203 Очистка папок экспорта завершена</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:203 * очистка импортированных данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:266 * очистка внешних дельт</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:266 Очистка папок внешних дельт</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:266 Очистка папок внешних дельт завершена</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:266 * очистка папок MDP</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:281 Крайний срок окончания 21.09.2026 7:00:00</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:281 Начало копирования базы</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:281 Удаление старых &quot;вчерашних&quot; копий</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:297 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:297   !! freeing tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:297   !! freed tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:297   !! destroing Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:313   !! destroed Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:05:18:313 Механизм остановлен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:10:194 Проверка точности копии</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:241 Копии совпали</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:257 Запуск механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:257 HyTech ver. 2.7.20.302 ht32db.dll</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:319 Start listening Name - 10.214.28.6 IP - 10.214.28.6 Port - 32100</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:319 * проверка таблицы SUB</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:319 * проверка таблицы STAGE</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:319 * сброс журнала залочек</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:335 * загрузка KW</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:335 Файл ключевых слов (D:\ARCHI\KW\com.kw) не найден</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:335 Письмо отправлено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:45:38:335 Updating autolink cache</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:09:700 Начался процесс построения кэша структур</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:09:715 Подсчет завершен. Найдено:</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:09:715  340 документов</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:590 EFltr: A:atTypes (dpDoc) - получаем данные</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:590 EFltr: A:atTypes Получено 412 записей</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:637 # 414773516 (1 из 340)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:637 EFltr: A:atHLink (dpDoc) - получаем данные</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:684 EFltr: A:atHLink Получено 11940 записей</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:715 IID 7958232: всего cсылок 15, из них восстановлено 15</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:715 # 414773522 (2 из 340)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:747 IID 7958236: всего cсылок 28, из них восстановлено 28</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:747 # 414773526 (3 из 340)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:809 IID 7958366: всего cсылок 25, из них восстановлено 25</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:825 # 414776686 (4 из 340)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:825 IID 7958380: всего cсылок 8, из них восстановлено 8</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:825 # 414777830 (5 из 340)</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 00:46:10:840 IID 7958454: всего cсылок 4, из них восстановлено 4</div>
+<div class="line">...[пропущено 46278 строк]...</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:04:830 Переменная и постоянная части совпали DocID = 7970305 Part = 5 Index = 6</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:04:830 Переменная и постоянная части совпали DocID = 7970305 Part = 5 Index = 100</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:04:830 Обновление текстовой части завершено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:24:128 Обновление переменной части завершено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:24:128 Письмо отправлено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:24:128 import autolink cache - 1 pieces</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:11:24:128 Importing cache - Федеральный кэш</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:21:540 get autolink cache from FTP</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:45:556 unpack autolink cache</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:47:962 copy autolink cache</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:47:962 cleanup autolink cache</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:509 Переключение на постоянную базу</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572   !! freeing tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572   !! freed tables</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572   !! destroing Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572   !! destroed Hytech</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:572 Механизм остановлен</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:603 Запуск механизма доступа к базе данных</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:603 HyTech ver. 2.7.20.302 ht32db.dll</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:728 Start listening Name - 10.214.28.6 IP - 10.214.28.6 Port - 32100</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:744 Переключение на постоянную базу done</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:744 Переключение на постоянную базу UnlockBase done</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:744 Письмо отправлено</div>
+<div class="line">i.ARCHI1-TVR..0   21.09.2026 01:12:48:744 Ежедневная процедура обновления базы завершена</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-3">
+  <summary>ArchiRegion_AutoPipeServer <span class="cnt">(117)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== ArchiRegion_AutoPipeServer =====</div>
+<div class="line">Path: \\10.214.28.21\e$\ArchiReg\alcu\AutoPipeServer.log</div>
+<div class="line">Изменён: 2026-09-21 07:33:03 (сегодня, 0 минут назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line">  Required: Ежедневная процедура обновления базы завершена : найдено</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >  Keywords: TASKERROR × 0, ОШИБКА! × 0, ошибкой × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:00:506 Выполняется задание: Ежедневное обновление, запланированное на 21.09.2026 0:01:00</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:00:506 Добавление новой задачи: Ежедневное обновление</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:00:506 Задача добавлена 65000-21-09-2026-00-01-00-506 (22970E00) (TalcuSchedulerProxyTask) Ежедневное обновление</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:00:585 Следующее задание: Синхронизация словарей в Гардок, запуск 21.09.2026 0:02:00</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:00:600 Удаление старой почты (сохраняются письма за последние 180 дней)</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:01:741 Usr#10000D8: 1 письмо</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:02:022 Usr#1000220: 1 письмо</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:03:788 Usr#1000242: 1 письмо</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:06:147 Usr#1000246: 6 писем</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:08:100 Usr#1000249: 1 письмо</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:147 Usr#100024C: 2 письма</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:147 Usr#100024E: 1 письмо</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:256 Всего удалено 13 писем</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:256 Проверка доступности базы...</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:256 * попытка выгнать пользователей</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:12:272 * Server 10.214.28.21(10.214.28.21)</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:277 Принудительное закрытие сессий:</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:277 * обновляем список пользователей</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:277 * лочим базу</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:308 * разлочиваем базу</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:325 База доступна</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:325 Ежедневная процедура обновления базы</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:325 * упаковка нотификаций</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:42:387 * проверка свободного места</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:440 * переключение на временную базу</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:440 Переключение на временную базу</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:518 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:659   !! freeing tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674   !! freed tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674   !! destroing Hytech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674   !! destroed Hytech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674 Механизм остановлен</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674 Запуск механизма доступа к базе данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:674 HyTech ver. 2.7.20.302 ht32db.dll</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Start listening Name - 10.214.28.21 IP - 10.214.28.21 Port - 32100</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Переключение на временную базу done</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * сбрасываем лог</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс E:\ArchiReg\alcu\AutoPipeServer.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * сбрасываем лог Арчи</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * сбрасываем лог контроллера</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcuServiceControl.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * сбрасываем лог HyTech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * сбрасываем логи alcuTaskExecutor</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcuTaskExecutor.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Удаление старых резервных копий</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AnnotationTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AnoncedExportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AutoAnnoExportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AutoClassTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AutoExportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_AutolinkerTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_CheckControlledQueries.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_ExportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_ImportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_mdpImportDocs.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_mdpSyncDicts.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_ProgExecTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_RelPublishTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс alcu_ReportTask.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 Сброс m3DBCheck.log</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:705 * переливка кэша образов в постоянное хранилище</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:721 Кэш образов пуст, обработка не требуется.</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:721 * очистка папок экспорта</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:721 Очистка папок экспорта</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Очистка папок экспорта завершена</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 * очистка импортированных данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 * очистка внешних дельт</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Очистка папок внешних дельт</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Очистка папок внешних дельт завершена</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 * очистка папок MDP</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Крайний срок окончания 21.09.2026 6:00:00</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Начало копирования базы</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Удаление старых &quot;вчерашних&quot; копий</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:44:737 Удаление E:\ArchiReg\archiv\Day\2026-09-15</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:49:600 Удаление E:\ArchiReg\archiv\Day\2026-09-16</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:55:967 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:55:967   !! freeing tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:55:967   !! freed tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:55:967   !! destroing Hytech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:01:55:967   !! destroed Hytech</div>
+<div class="line">...[пропущено 214 строк]...</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:909 Начало обновления переменной части</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:909 Начало обновления текстовой части</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:909 Обновление текстовой части завершено</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:909 Обновление переменной части завершено</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:924 Письмо отправлено</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:924 import autolink cache - 1 pieces</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:07:924 Importing cache - Федеральный кэш</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:32:59:799 get autolink cache from FTP</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:31:299 unpack autolink cache</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:204 copy autolink cache</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:204 cleanup autolink cache</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:344 Переключение на постоянную базу</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:391 Временная остановка механизма доступа к базе данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:407   !! freeing tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:407   !! freed tables</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:407   !! destroing Hytech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:422   !! destroed Hytech</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:422 Механизм остановлен</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:422 Запуск механизма доступа к базе данных</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:438 HyTech ver. 2.7.20.302 ht32db.dll</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:643 Start listening Name - 10.214.28.21 IP - 10.214.28.21 Port - 32100</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:643 Переключение на постоянную базу done</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:659 Переключение на постоянную базу UnlockBase done</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:659 Письмо отправлено</div>
+<div class="line">i.ARCHI-REGION.RDP-Tcp#66.0 21.09.2026 00:33:42:659 Ежедневная процедура обновления базы завершена</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-4">
+  <summary>GarantMain_Download <span class="cnt">(61)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== GarantMain_Download =====</div>
+<div class="line">Path: \\10.214.28.10\logs\download.log</div>
+<div class="line">Изменён: 2026-09-21 06:05:01 (сегодня, 1 час назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >  Required: Пн сен 21 2026 &amp; Автоматический запуск утилиты dataupd.exe : найдено</div>
+<div class="line">  Keywords: Ошибка сервера × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Для обновления информационного банка запустите программу пакетного пополнения.</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >Пн сен 21 2026 0:11:18: Автоматический запуск утилиты dataupd.exe</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 3:00:02: IP Address: 10.214.32.6</div>
+<div class="line">Пн сен 21 2026 3:00:02: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 3:00:02: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 3:00:02: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 3:00:02: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 3:00:02: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 3:00:02: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 3:00:02: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 3:00:02: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 4:05:00: IP Address: 10.214.32.6</div>
+<div class="line">Пн сен 21 2026 4:05:00: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 4:05:00: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 4:05:00: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 4:05:00: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 4:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 4:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 4:05:00: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 4:05:00: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 5:05:00: IP Address: 10.214.32.6</div>
+<div class="line">Пн сен 21 2026 5:05:00: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 5:05:00: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 5:05:00: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 5:05:00: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 5:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 5:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 5:05:00: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 5:05:00: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 6:05:00: IP Address: 10.214.32.6</div>
+<div class="line">Пн сен 21 2026 6:05:00: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 6:05:00: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 6:05:00: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 6:05:00: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 6:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 6:05:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 6:05:00: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 6:05:00: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-5">
+  <summary>GarantMain_Update <span class="cnt">(37)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== GarantMain_Update =====</div>
+<div class="line">Path: \\10.214.28.10\logs\update.log</div>
+<div class="line">Изменён: 2026-09-21 01:19:18 (сегодня, 6 часов назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line">  Required: Процесс пакетного пополнения успешно завершен : найдено, Применение GL прошло успешно. &amp; 21:9:2026 : найдено</div>
+<div class="line">  Keywords: Функционирование × 0, CORBA × 0, недостаточно! × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Пущен с объединением дельт (EnableGuMergeOptimization=1)</div>
+<div class="line">Выбран упрощенный тип обновления</div>
+<div class="line"></div>
+<div class="line">Проверка свободного места, требуемого для обновления:</div>
+<div class="line">  есть: 324,46 Гб</div>
+<div class="line">  надо: 17,78 Гб + 265,22 Гб, итого: 283,00 Гб</div>
+<div class="line"></div>
+<div class="line"></div>
+<div class="line">Дата: 21:9:2026 Время:  0:11:26 Начато резервное копирование базы</div>
+<div class="line"></div>
+<div class="line"></div>
+<div class="line">Дата: 21:9:2026 Время:  0:29:58 Закончено резервное копирование базы</div>
+<div class="line"></div>
+<div class="line">Пускаем GU810.DLL к базе D:\Garant\Garant-Server\data2\data. Дата: 21:9:2026 Время:  0:29:58</div>
+<div class="line">   Дельта: D:\Garant\Garant-Server\delta\52390c0a4641510afe6a28.D02</div>
+<div class="line">Применение дельт(ы) прошло успешно</div>
+<div class="line"></div>
+<div class="line">Пускаем GU7tr.dll к базе D:\Garant\Garant-Server\data2\data. Дата: 21:9:2026 Время:  0:58:39</div>
+<div class="line">Обновление морфоиндекса</div>
+<div class="line">Обновление морфоиндекса прошло успешно</div>
+<div class="line"></div>
+<div class="line">Пускаем GL к базе D:\Garant\Garant-Server\data2\data. Дата: 21:9:2026 Время:  1:09:36</div>
+<div class="line">Применение GL прошло успешно. Дата: 21:9:2026 Время:  1:19:16</div>
+<div class="line"></div>
+<div class="line">Процесс пакетного пополнения успешно завершен.</div>
+<div class="line">Обновление заняло 00:49:18</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-6">
+  <summary>GarantReserv_Download <span class="cnt">(51)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== GarantReserv_Download =====</div>
+<div class="line">Path: \\10.214.28.7\D$\Garant\Garant-Server\logs\download.log</div>
+<div class="line">Изменён: 2026-09-21 06:00:01 (сегодня, 1 час назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >  Required: Пн сен 21 2026 &amp; Автоматический запуск утилиты dataupd.exe : найдено</div>
+<div class="line">  Keywords: Ошибка сервера × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 4:00:01: IP Address: 10.214.32.3</div>
+<div class="line">Пн сен 21 2026 4:00:01: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 4:00:01: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -nobackup -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 4:00:01: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 4:00:01: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 4:00:01: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 4:00:01: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 4:00:01: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 19-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 4:00:11: Закачка доступного обновления для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">Имя файла: 61148389.zip, размер файла: 88,47 Мб.</div>
+<div class="line">Пн сен 21 2026 4:00:18: Загрузка файлов обновления успешно завершена. </div>
+<div class="line"></div>
+<div class="line">Для обновления информационного банка запустите программу пакетного пополнения.</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >Пн сен 21 2026 4:00:18: Автоматический запуск утилиты dataupd.exe</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 5:00:02: IP Address: 10.214.32.3</div>
+<div class="line">Пн сен 21 2026 5:00:02: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 5:00:02: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -nobackup -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 5:00:02: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 5:00:02: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 5:00:02: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 5:00:02: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 5:00:02: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 5:00:02: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line">-----------------------------------------------------------------------------------------------------</div>
+<div class="line">Пн сен 21 2026 6:00:00: IP Address: 10.214.32.3</div>
+<div class="line">Пн сен 21 2026 6:00:00: Version of Windows: Microsoft Windows Server / Service Pack 2 (Build 3790) </div>
+<div class="line">Пн сен 21 2026 6:00:00: Command line: -GCMConfigFile &quot;D:\Garant\Garant-Server\garant.ini&quot; -GPMF1DownloadConfigSection &quot;F1Download Params&quot;  -auto -revision -dsc 10 -runupdate -nobackup -deletezips -skipwarning -nofinalmessage -F1InternetActive</div>
+<div class="line">Пн сен 21 2026 6:00:00: User Agent: F1Download</div>
+<div class="line">Пн сен 21 2026 6:00:00: Mode: AUTOMATIC</div>
+<div class="line">Пн сен 21 2026 6:00:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 6:00:00: Соединение с интернет: настройки из системного реестра.</div>
+<div class="line">Пн сен 21 2026 6:00:00: Проверка обновлений для комплекта 'ГАРАНТ-Максимум. Вся Россия, объединенный с ГАРАНТ-Универсал +, Сутяжник, ГАРАНТ-Классик, Конструктор правовых документов(ГАРАНТ-Максимум. Вся Россия аэро)'</div>
+<div class="line">за период с 21-9-2026 по 21-9-2026.</div>
+<div class="line">Пн сен 21 2026 6:00:00: Невозможно получить информацию с сервера пакетного пополнения:</div>
+<div class="line">Неправильный интервал дат</div>
+<div class="line"></div>
+
+  </div>
+</details>
+<details class="section" id="anchor-7">
+  <summary>GarantReserv_Update <span class="cnt">(37)</span></summary>
+  <div class="section-body">
+<div class="line">######################################################################</div>
+<div class="line">===== GarantReserv_Update =====</div>
+<div class="line">Path: \\10.214.28.7\D$\Garant\Garant-Server\logs\update.log</div>
+<div class="line">Изменён: 2026-09-21 04:48:38 (сегодня, 2 часа назад)</div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">Проверки:</div>
+<div class="line">  Required: Процесс пакетного пополнения успешно завершен : найдено, Применение GL прошло успешно. &amp; 21:9:2026 : найдено</div>
+<div class="line">  Keywords: Функционирование × 0, CORBA × 0, недостаточно! × 0</div>
+<div class="line"></div>
+<div class="line">______________________________________________________________________</div>
+<div class="line">--------------------------------------------------</div>
+<div class="line">Запущен с параметрами:</div>
+<div class="line">D:\Garant\Garant-Server\apps\win64\F1DataUpd.run -GCMConfigFile D:\Garant\Garant-Server\garant.ini -GPMF1DataUpdConfigSection F1DataUpd Params auto nobackup nofinalmessage deletezips -F1InternetActive</div>
+<div class="line">Пущен с объединением дельт (EnableGuMergeOptimization=1)</div>
+<div class="line">Выбран упрощенный тип обновления</div>
+<div class="line"></div>
+<div class="line"></div>
+<div class="line">Дата: 21:9:2026 Время:  4:00:20 От создания резервной копии отказались</div>
+<div class="line"></div>
+<div class="line">Проверка свободного места, требуемого для обновления:</div>
+<div class="line">  есть: 330,51 Гб</div>
+<div class="line">  надо: 17,78 Гб</div>
+<div class="line"></div>
+<div class="line">Пускаем GU810.DLL к базе D:\Garant\Garant-Server\data1\data. Дата: 21:9:2026 Время:  4:00:20</div>
+<div class="line">   Дельта: D:\Garant\Garant-Server\delta\52390c0a4641510afe6a28.D02</div>
+<div class="line">Применение дельт(ы) прошло успешно</div>
+<div class="line"></div>
+<div class="line">Пускаем GU7tr.dll к базе D:\Garant\Garant-Server\data1\data. Дата: 21:9:2026 Время:  4:28:16</div>
+<div class="line">Обновление морфоиндекса</div>
+<div class="line">Обновление морфоиндекса прошло успешно</div>
+<div class="line"></div>
+<div class="line">Пускаем GL к базе D:\Garant\Garant-Server\data1\data. Дата: 21:9:2026 Время:  4:39:32</div>
+<div class="line">Применение GL прошло успешно. Дата: 21:9:2026 Время:  4:48:36</div>
+<div class="line"></div>
+<div class="line">Процесс пакетного пополнения успешно завершен.</div>
+<div class="line">Обновление заняло 00:48:16</div>
+<div class="line"></div>
+
+  </div>
+</details>
+</div>
+<div class="pane" id="pane-1">
+  <div class="path-info">Маска: e:\Utils_Scripts\CheckHosts\logs\monitor_*.log → E:\Utils_Scripts\CheckHosts\logs\monitor_20260921.log</div>
+<details class="section" id="anchor-8">
+  <summary>Секция 1 <span class="cnt">(105)</span></summary>
+  <div class="section-body">
+<div class="line">2026-09-21 06:54:33 [INFO] === Check started ===</div>
+<div class="line">2026-09-21 06:54:33 [INFO] Loaded 100 host(s) from hosts.txt</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:33 [INFO] ONLINE  10.214.4.2 antonov.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:54:37 [WARN] OFFLINE 10.214.4.3 correctors.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:54:41 [WARN] OFFLINE 10.214.4.5 gorskaya.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:41 [INFO] ONLINE  10.214.4.6 pendi.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:41 [INFO] ONLINE  10.214.4.7 tikhomirova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:54:45 [WARN] OFFLINE 10.214.4.8 vorochay.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.9 amirova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.10 compile.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.11 artemyeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.12 kononets.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.13 brovman.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.14 vychegzhanin.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.15 novichkova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:45 [INFO] ONLINE  10.214.4.16 gladkova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:54:50 [WARN] OFFLINE 10.214.4.17 andreevaui.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:50 [INFO] ONLINE  10.214.4.18 melnikova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:54:55 [WARN] OFFLINE 10.214.4.19 afanasyeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:55 [INFO] ONLINE  10.214.4.20 baeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:54:55 [INFO] ONLINE  10.214.4.21 aivanov.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:00 [WARN] OFFLINE 10.214.4.22 trunina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:04 [WARN] OFFLINE 10.214.4.23 fidyk.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:04 [INFO] ONLINE  10.214.4.24 belyakov.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:09 [WARN] OFFLINE 10.214.4.25 zabotina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:14 [WARN] OFFLINE 10.214.4.26 begunova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:14 [INFO] ONLINE  10.214.4.27 golovina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:19 [WARN] OFFLINE 10.214.4.28 sigova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:19 [INFO] ONLINE  10.214.4.29 lukashova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:24 [WARN] OFFLINE 10.214.4.30 silaeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:24 [INFO] ONLINE  10.214.4.31 bocharova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:28 [WARN] OFFLINE 10.214.4.32 drozdova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:28 [INFO] ONLINE  10.214.4.33 podkovyrov.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:33 [WARN] OFFLINE 10.214.4.34 volkova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:33 [INFO] ONLINE  10.214.4.35 andreeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:33 [INFO] ONLINE  10.214.4.36 vitokha.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:38 [WARN] OFFLINE 10.214.4.37 sorokina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:38 [INFO] ONLINE  10.214.4.38 WEB</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:42 [WARN] OFFLINE 10.214.4.39 ermakova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:42 [INFO] ONLINE  10.214.4.40 romanova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:42 [INFO] ONLINE  10.214.4.41 yakimushkina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:42 [INFO] ONLINE  10.214.4.43 khomutova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:42 [INFO] ONLINE  10.214.4.44 bezlepkina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:42 [INFO] ONLINE  10.214.4.45 lavrova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:46 [WARN] OFFLINE 10.214.4.46 ivanov.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.47 kotylo.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.49 reshotko.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.50 karasevich.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.51 ADMIN1.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.52 nilova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.53 dzitovetskiy.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.54 asmirnova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.55 lavrenova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:46 [INFO] ONLINE  10.214.4.56 galkin.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:50 [WARN] OFFLINE 10.214.4.58 kalyuzhnaya.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:50 [INFO] ONLINE  10.214.4.59 domnina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:50 [INFO] ONLINE  10.214.4.60 khudoyan.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:50 [INFO] ONLINE  10.214.4.61 zaporoshchenko.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:55 [WARN] OFFLINE 10.214.4.62 babanin.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:55 [INFO] ONLINE  10.214.4.63 berdyugina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:55:59 [WARN] OFFLINE 10.214.4.64 timofeev.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.66 admin2.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.67 abdrafikova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.68 petrovao.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.69 budikhina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.70 drozdov.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:55:59 [INFO] ONLINE  10.214.4.71 churkina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:56:04 [WARN] OFFLINE 10.214.4.72 mishina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:04 [INFO] ONLINE  10.214.4.73 ipetrova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:56:08 [WARN] OFFLINE 10.214.4.74 gromova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.75 voronova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.76 sysoeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.77 efremenkov.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.78 koksharova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.79 ignatyev.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.81 vasilyeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.82 grebneva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.83 shumilin.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.84 zolina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.85 rud.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.86 skalkina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.87 paramonova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.88 romanov.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.89 zhigacheva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.90 anikolaeva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.92 kurokhtina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.93 kosticheva.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.94 batrakov.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:08 [INFO] ONLINE  10.214.4.95 avishnyakova.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:56:12 [WARN] OFFLINE 10.214.4.96 musina.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:12 [INFO] ONLINE  10.214.4.97 erogova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:12 [INFO] ONLINE  10.214.4.98 akrasnova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:12 [INFO] ONLINE  10.214.4.99 oplachko.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:56:17 [WARN] OFFLINE 10.214.4.100 shcherbakova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:17 [INFO] ONLINE  10.214.4.102 novichikhina.tverdc.net</div>
+<div class="line hl" style="color:#c00000;font-weight:bold;" >2026-09-21 06:56:22 [WARN] OFFLINE 10.214.4.103 tulenkova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.104 shchelochenkova.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.110 compilecht.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.111 compile111.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.120 linux-term1.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.170 skyd.tverdc.net</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:22 [INFO] ONLINE  10.214.4.172 videoRec</div>
+<div class="line hl" style="color:#0066cc;font-weight:bold;" >2026-09-21 06:56:23 [INFO] Telegram sent OK</div>
+<div class="line">2026-09-21 06:56:23 [INFO] Email sent OK</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:23 [INFO] === Check finished: total=100, online=76, offline=24 ===</div>
+
+  </div>
+</details>
+</div>
+<div class="pane" id="pane-2">
+  <div class="error-box">Файл не найден: C:\Reports\simple.txt</div>
+</div>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  // --- Переключение вкладок ---
+  var tabs = document.querySelectorAll('#tabs .tab');
+  var panes = document.querySelectorAll('.pane');
+
+  function activate(paneId) {
+    for (var i = 0; i < tabs.length; i++) {
+      var t = tabs[i];
+      if (t.getAttribute('data-tab') === paneId) t.classList.add('active');
+      else t.classList.remove('active');
+    }
+    for (var j = 0; j < panes.length; j++) {
+      var p = panes[j];
+      if (p.id === paneId) p.classList.add('active');
+      else p.classList.remove('active');
+    }
+  }
+
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener('click', function () {
+      activate(this.getAttribute('data-tab'));
+    });
+  }
+
+  // --- Кнопки "Развернуть всё" / "Свернуть всё" для активной вкладки ---
+  function activePane() {
+    return document.querySelector('.pane.active');
+  }
+
+  document.getElementById('btn-expand').addEventListener('click', function () {
+    var p = activePane(); if (!p) return;
+    var ds = p.querySelectorAll('details'); 
+    for (var i = 0; i < ds.length; i++) ds[i].open = true;
+  });
+
+  document.getElementById('btn-collapse').addEventListener('click', function () {
+    var p = activePane(); if (!p) return;
+    var ds = p.querySelectorAll('details');
+    for (var i = 0; i < ds.length; i++) ds[i].open = false;
+  });
+
+  // --- Оглавление: клик -> активировать вкладку и развернуть секцию ---
+  function handleTocClick(ev) {
+    var a = ev.target.closest('a');
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+
+    // Ссылка на отчёт (data-target)
+    var target = a.getAttribute('data-target');
+    if (target) {
+      ev.preventDefault();
+      activate(target);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // Ссылка на секцию (#anchor)
+    if (href.charAt(0) === '#') {
+      ev.preventDefault();
+      var el = document.getElementById(href.substring(1));
+      if (!el) return;
+
+      // Активируем вкладку, в которой лежит секция
+      var pane = el.closest('.pane');
+      if (pane) activate(pane.id);
+
+      // Разворачиваем секцию и скроллим к ней
+      if (el.tagName.toLowerCase() === 'details') el.open = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  document.querySelector('.sidebar').addEventListener('click', handleTocClick);
+
+  // --- Активная вкладка при загрузке: первая ---
+  if (panes.length > 0 && !document.querySelector('.pane.active')) {
+    panes[0].classList.add('active');
+    if (tabs.length > 0) tabs[0].classList.add('active');
+  }
+})();
+</script>
+
+</body>
+</html>
