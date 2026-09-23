@@ -155,21 +155,16 @@
 
 <header>
   <h1>Мониторинг отчётов</h1>
-  <div class="meta">Сформировано: 2026-09-23 10:28:05</div>
+  <div class="meta">Сформировано: 2026-09-23 16:40:03</div>
 </header>
 
 <div class="layout">
   <aside class="sidebar">
     <h2>Содержание</h2>
     <ul>
-<li><a href="#" data-target="pane-0" class="toc-report">Сводный отчёт по серверам</a>
+<li><a href="#" data-target="pane-0" class="toc-report">Журнал проверок</a>
 <ul class="toc-sections">
-
-</ul>
-</li>
-<li><a href="#" data-target="pane-1" class="toc-report">Журнал проверок</a>
-<ul class="toc-sections">
-  <li><a href="#anchor-8" class="toc-section">Секция 1</a></li>
+  <li><a href="#anchor-1" class="toc-section">Секция 1</a></li>
 </ul>
 </li>
 
@@ -178,9 +173,8 @@
 
   <main class="content">
     <div class="tabs" id="tabs">
-  <button class="tab active" data-tab="pane-0">Сводный отчёт по серверам</button>
-  <button class="tab" data-tab="pane-1">Журнал проверок</button>
-  <button class="tab" data-tab="pane-2">Простой лог</button>
+  <button class="tab active" data-tab="pane-0">Журнал проверок</button>
+  <button class="tab" data-tab="pane-1">Простой лог</button>
 
     </div>
 
@@ -190,12 +184,21 @@
     </div>
 
 <div class="pane active" id="pane-0">
-  <div class="path-info">Маска: e:\Utils_Scripts\CheckLog\reports\logs_*.txt → E:\Utils_Scripts\CheckLog\reports\logs_2026-09-21_07-33-56.txt</div>
+  <div class="path-info">Маска: e:\Utils_Scripts\CheckHosts\logs\monitor_*.log → E:\Utils_Scripts\CheckHosts\logs\monitor_20260921 (2).log</div>
+<details class="section" open id="anchor-1">
+  <summary>Секция 1 <span class="cnt">(6)</span></summary>
+  <div class="section-body">
+<div class="line">2026-09-21 06:54:33 [INFO] === Check started ===</div>
+<div class="line">2026-09-21 06:54:33 [INFO] Loaded 100 host(s) from hosts.txt</div>
+<div class="line"></div>
+<div class="line hl" style="color:#0066cc;font-weight:bold;" >2026-09-21 06:56:23 [INFO] Telegram sent OK</div>
+<div class="line">2026-09-21 06:56:23 [INFO] Email sent OK</div>
+<div class="line hl" style="color:#008000;font-weight:bold;" >2026-09-21 06:56:23 [INFO] === Check finished: total=100, online=76, offline=24 ===</div>
 
   </div>
 </details>
 </div>
-<div class="pane" id="pane-2">
+<div class="pane" id="pane-1">
   <div class="error-box">Файл не найден: C:\Reports\simple.txt</div>
 </div>
 
@@ -204,7 +207,6 @@
 
 <script>
 (function () {
-  // --- Переключение вкладок ---
   var tabs = document.querySelectorAll('#tabs .tab');
   var panes = document.querySelectorAll('.pane');
 
@@ -227,14 +229,13 @@
     });
   }
 
-  // --- Кнопки "Развернуть всё" / "Свернуть всё" для активной вкладки ---
   function activePane() {
     return document.querySelector('.pane.active');
   }
 
   document.getElementById('btn-expand').addEventListener('click', function () {
     var p = activePane(); if (!p) return;
-    var ds = p.querySelectorAll('details'); 
+    var ds = p.querySelectorAll('details');
     for (var i = 0; i < ds.length; i++) ds[i].open = true;
   });
 
@@ -244,13 +245,11 @@
     for (var i = 0; i < ds.length; i++) ds[i].open = false;
   });
 
-  // --- Оглавление: клик -> активировать вкладку и развернуть секцию ---
   function handleTocClick(ev) {
     var a = ev.target.closest('a');
     if (!a) return;
     var href = a.getAttribute('href') || '';
 
-    // Ссылка на отчёт (data-target)
     var target = a.getAttribute('data-target');
     if (target) {
       ev.preventDefault();
@@ -259,17 +258,14 @@
       return;
     }
 
-    // Ссылка на секцию (#anchor)
     if (href.charAt(0) === '#') {
       ev.preventDefault();
       var el = document.getElementById(href.substring(1));
       if (!el) return;
 
-      // Активируем вкладку, в которой лежит секция
       var pane = el.closest('.pane');
       if (pane) activate(pane.id);
 
-      // Разворачиваем секцию и скроллим к ней
       if (el.tagName.toLowerCase() === 'details') el.open = true;
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -277,7 +273,6 @@
 
   document.querySelector('.sidebar').addEventListener('click', handleTocClick);
 
-  // --- Активная вкладка при загрузке: первая ---
   if (panes.length > 0 && !document.querySelector('.pane.active')) {
     panes[0].classList.add('active');
     if (tabs.length > 0) tabs[0].classList.add('active');
