@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Восход, закат и долгота дня</title>
+<style>
+  :root{
+    --bg:#1e1e24; --panel:#2b2b36; --input:#15151a; --accent:#4cd964;
+    --text:#f0f0f0; --muted:#a0a0b0; --border:#3a3a4a;
+  }
+  *{box-sizing:border-box}
+  html,body{max-width:100%; overflow-x:hidden}
+  body{
+    margin:0; padding:20px; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Tahoma,Verdana,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    -webkit-text-size-adjust:100%;
+  }
+  .app{width:100%; max-width:900px; display:flex; flex-direction:column; gap:18px}
+  .panel{
+    background:var(--panel); border:2px solid var(--border);
+    border-radius:14px; padding:18px;
+  }
+    details.panel > summary{
+    list-style:none; cursor:pointer; user-select:none;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    position:relative; padding-right:22px;
+  }
+  details.panel > summary::-webkit-details-marker{display:none}
+  details.panel > summary::after{
+    content:'▸'; position:absolute; right:0; top:50%; transform:translateY(-50%);
+    color:var(--muted); font-size:1em; transition:transform .15s;
+  }
+  details.panel[open] > summary::after{transform:translateY(-50%) rotate(90deg)}
+  details.panel > summary:hover{color:var(--accent)}
+  details.panel > summary h2{margin:0}
+  h1{margin:0; font-size:1.6em; letter-spacing:.5px; text-align:center;}
+  h2{margin:0 0 12px; font-size:1.05em; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:1px; text-align:center;}
+  .coords{display:flex; gap:14px; align-items:flex-end; justify-content:center; flex-wrap:wrap}
+  .field{display:flex; flex-direction:column; gap:5px; align-items:flex-start;}
+  .field label{font-size:.8em; color:var(--muted)}
+  input[type=number], input[type=text], select{
+    background:var(--input); color:var(--accent); border:1px solid var(--border);
+    border-radius:6px; padding:8px 10px; font-size:1em; font-weight:600; width:130px;
+    min-height:44px;
+  }
+  select{width:150px}
+  button{
+    background:var(--accent); color:#10151a; border:none; border-radius:6px;
+    padding:9px 16px; font-size:.95em; font-weight:700; cursor:pointer;
+    transition:filter .15s; min-height:44px;
+  }
+  button:hover{filter:brightness(1.1)}
+  button.ghost{background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:600}
+  button.ghost:hover{color:var(--accent); border-color:var(--accent); filter:none}
+
+  .today-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px}
+  .card{background:var(--input); border:1px solid var(--border); border-radius:10px; padding:12px; text-align:center;}
+  .card .k{font-size:.75em; color:var(--muted); text-transform:uppercase; letter-spacing:1px}
+  .card .v{font-size:1.5em; font-weight:700; color:var(--accent); margin-top:4px}
+  .card .s{font-size:.75em; color:var(--muted); margin-top:2px}
+  /* Карточка Луны — отдельная цветовая схема */
+  .card.moon-card{
+    background:#1a1a2e;
+    border-color:#3d3d5c;
+    box-shadow: inset 0 0 20px rgba(200,190,140,.08);
+  }
+  .card.moon-card .k{color:#c8c0a8}
+  .card.moon-card .v{color:#e8d88c}
+
+  .scroll-wrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    margin-top:10px;
+  }
+  .scroll-inner{
+    min-width:700px;
+  }
+  .table-wrap{ margin-top:0; }
+  table{border-collapse:collapse; width:100%; font-size:.8em; table-layout:fixed; min-width:700px}
+  th,td{padding:6px 4px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap}
+  th{color:var(--muted); font-weight:600}
+  td.row-label{text-align:left; color:var(--muted); font-weight:600; width:110px; padding-left:8px}
+  td.today-col{font-size: 1.2em; background:rgba(76,217,100,.07)}
+  th.today-col{color:var(--accent)}
+  .diff{font-size:.75em; color:var(--muted); display:block; margin-top:2px}
+  .diff.pos{color:#4cd964}
+  .diff.neg{color:#ff6b6b}
+
+  .period-bar{display:flex; align-items:center; gap:14px; margin-top:12px; flex-wrap:wrap}
+  .period-bar input[type=range]{flex:1; min-width:120px; accent-color:var(--accent); cursor:pointer; height:32px}
+  .period-label{font-size:.95em; color:var(--text); font-weight:600; min-width:120px; text-align:center}
+
+  .chart-box{position:relative; margin-bottom:4px; width:100%}
+  svg{display:block; width:100%; height:auto; cursor:crosshair}
+  #chartLong{height:240px}
+  #chartMoon{height:240px}
+  .tooltip{
+    position:absolute; pointer-events:none; background:#0d0d12; border:1px solid var(--border);
+    border-radius:6px; padding:6px 9px; font-size:.8em; color:var(--text);
+    white-space:nowrap; opacity:0; transition:opacity .12s; z-index:5;
+  }
+  .tooltip.on{opacity:1}
+  .muted{color:var(--muted); font-size:.85em; text-align:center;}
+
+  /* ===== Мобильная адаптация ===== */
+  @media (max-width: 640px){
+    body{padding:12px}
+    .app{gap:12px}
+    .panel{padding:14px; border-radius:12px}
+    h1{font-size:1.25em}
+    h2{font-size:.95em; letter-spacing:.5px}
+
+    .coords{flex-direction:column; align-items:stretch; gap:10px}
+    .field{width:100%}
+    .field label{font-size:.8em}
+    input[type=number], select{width:100%}
+    #recalc{width:100%}
+
+    .today-grid{grid-template-columns:repeat(2,1fr); gap:10px}
+    .card{padding:10px}
+    .card .v{font-size:1.25em}
+    .today-grid .card:last-child{grid-column:1 / -1}
+    #moonGrid{grid-template-columns:repeat(3,1fr) !important}
+    #moonGrid .card:last-child{grid-column:auto}
+
+    .scroll-inner{ min-width:640px; }
+    table{font-size:.75em}
+    td.row-label{width:90px; padding-left:6px}
+    th,td{padding:5px 3px}
+
+    #chartLong{height:260px}
+    #chartMoon{height:220px}
+
+    .period-bar{gap:8px}
+    .period-label{min-width:0; flex:1 1 100%; order:-1}
+    #slider{flex:1 1 100%}
+    #backToday{flex:1 1 100%}
+  }
+
+  @media (max-width: 420px){
+    .today-grid{grid-template-columns:1fr}
+    .today-grid .card:last-child{grid-column:auto}
+    h1{font-size:1.1em}
+    .panel{padding:12px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="panel">
+    <h1>Восход, закат и долгота дня</h1>
+    <div class="muted" style="margin-top:6px">Расчёт по формуле NOAA (рефракция −0.833°, высота 0 м)</div>
+  </div>
+
+  <details class="panel" open>
+    <summary><h2>Координаты и часовой пояс</h2></summary>
+    <div class="coords">
+      <div class="field">
+        <label>Город</label>
+        <select id="citySelect">
+          <option value="custom">- Свой город -</option>
+        </select>
+      </div>
+      <div class="field"><label>Широта (°, +N/−S)</label><input type="number" id="lat" value="56.86" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label>Долгота (°, +E/−W)</label><input type="number" id="lon" value="35.91" step="0.01" inputmode="decimal"></div>
+      <div class="field"><label>Часовой пояс</label><select id="tz"></select></div>
+      <div class="field">
+        <label>Текущее время</label>
+        <input type="text" id="currentTime" readonly style="color:var(--accent); width:100px; text-align:center;">
+      </div>
+      <button id="recalc">Пересчитать</button>
+    </div>
+  </details>
+
+  <details class="panel" open>
+    <summary><h2>Сегодня</h2></summary>
+    <div class="today-grid" id="todayGrid"></div>
+  </details>
+
+  <details class="panel" id="panel14">
+    <summary><h2>Долгота дня: 14 дней</h2></summary>
+    <div class="scroll-wrap">
+      <div class="scroll-inner">
+        <div class="chart-box">
+          <svg id="chart14"></svg>
+          <div class="tooltip" id="tt14"></div>
+        </div>
+        <div class="table-wrap">
+          <table id="table14"></table>
+        </div>
+      </div>
+    </div>
+    <div class="period-bar">
+      <input type="range" id="slider" min="-365" max="365" value="0" step="1">
+      <div class="period-label" id="periodLabel"></div>
+      <button class="ghost" id="backToday">Вернуться к сегодня</button>
+    </div>
+  </details>
+
+  <details class="panel" id="panelLong">
+    <summary><h2>Долгота дня: 14 месяцев</h2></summary>
+    <div class="chart-box">
+      <svg id="chartLong" viewBox="0 0 860 240" preserveAspectRatio="none"></svg>
+      <div class="tooltip" id="ttLong"></div>
+    </div>
+  </details>
+
+  <details class="panel" id="panelMoon">
+    <summary><h2>Луна</h2></summary>
+
+    <div class="today-grid" id="moonGrid" style="grid-template-columns:repeat(3,1fr); margin-top:8px"></div>
+
+    <h3 style="margin:18px 0 6px; font-size:.9em; color:var(--muted); text-transform:uppercase; letter-spacing:1px; text-align:center;">Высота над горизонтом: сутки</h3>
+    <div class="chart-box">
+      <svg id="chartMoon" viewBox="0 0 860 240" preserveAspectRatio="none"></svg>
+      <div class="tooltip" id="ttMoon"></div>
+    </div>
+
+    <h3 style="margin:18px 0 6px; font-size:.9em; color:var(--muted); text-transform:uppercase; letter-spacing:1px; text-align:center;">Фазы Луны: 14 дней</h3>
+    <div class="scroll-wrap">
+      <div class="scroll-inner">
+        <table id="tableMoon"></table>
+      </div>
+    </div>
+  </details>
+
+</div>
+
+<script>
+const MS_DAY = 86400000;
+function startOfDay(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+const MONTHS_SHORT = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+const CITIES = [
+// Города РФ
+{ name: "Москва", lat: 55.75, lon: 37.61, tz: 3 },
+{ name: "Абакан", lat: 53.72, lon: 91.44, tz: 7 },
+{ name: "Архангельск", lat: 64.54, lon: 40.54, tz: 3 },
+{ name: "Астрахань", lat: 46.35, lon: 48.04, tz: 4 },
+{ name: "Барнаул", lat: 53.35, lon: 83.78, tz: 7 },
+{ name: "Владивосток", lat: 43.12, lon: 131.89, tz: 10 },
+{ name: "Волгоград", lat: 48.71, lon: 44.51, tz: 3 },
+{ name: "Воронеж", lat: 51.67, lon: 39.19, tz: 3 },
+{ name: "Екатеринбург", lat: 56.84, lon: 60.61, tz: 5 },
+{ name: "Ижевск", lat: 56.85, lon: 53.20, tz: 4 },
+{ name: "Иркутск", lat: 52.29, lon: 104.29, tz: 8 },
+{ name: "Казань", lat: 55.79, lon: 49.11, tz: 3 },
+{ name: "Калининград", lat: 54.71, lon: 20.51, tz: 2 },
+{ name: "Кемерово", lat: 55.35, lon: 86.09, tz: 7 },
+{ name: "Краснодар", lat: 45.03, lon: 38.98, tz: 3 },
+{ name: "Красноярск", lat: 56.01, lon: 92.87, tz: 7 },
+{ name: "Магадан", lat: 59.56, lon: 150.80, tz: 11 },
+{ name: "Махачкала", lat: 42.98, lon: 47.50, tz: 3 },
+{ name: "Нижний Новгород", lat: 56.33, lon: 44.00, tz: 3 },
+{ name: "Новокузнецк", lat: 53.76, lon: 87.11, tz: 7 },
+{ name: "Новосибирск", lat: 55.03, lon: 82.92, tz: 7 },
+{ name: "Омск", lat: 54.99, lon: 73.37, tz: 6 },
+{ name: "Пермь", lat: 58.01, lon: 56.25, tz: 5 },
+{ name: "Петрозаводск", lat: 61.79, lon: 34.35, tz: 3 },
+{ name: "Ростов-на-Дону", lat: 47.23, lon: 39.72, tz: 3 },
+{ name: "Самара", lat: 53.20, lon: 50.15, tz: 4 },
+{ name: "Санкт-Петербург", lat: 59.94, lon: 30.31, tz: 3 },
+{ name: "Саратов", lat: 51.53, lon: 46.03, tz: 4 },
+{ name: "Сочи", lat: 43.58, lon: 39.72, tz: 3 },
+{ name: "Тверь", lat: 56.86, lon: 35.92, tz: 3 },
+{ name: "Тюмень", lat: 57.15, lon: 65.53, tz: 5 },
+{ name: "Уфа", lat: 54.74, lon: 55.97, tz: 5 },
+// Города мира
+{ name: "Алматы", lat: 43.24, lon: 76.89, tz: 5 },
+{ name: "Амстердам", lat: 52.37, lon: 4.90, tz: 1 },
+{ name: "Афины", lat: 37.98, lon: 23.73, tz: 2 },
+{ name: "Ашхабад", lat: 37.96, lon: 58.33, tz: 5 },
+{ name: "Баку", lat: 40.41, lon: 49.87, tz: 4 },
+{ name: "Бангкок", lat: 13.76, lon: 100.50, tz: 7 },
+{ name: "Барселона", lat: 41.39, lon: 2.17, tz: 1 },
+{ name: "Батуми", lat: 41.65, lon: 41.64, tz: 4 },
+{ name: "Бишкек", lat: 42.87, lon: 74.59, tz: 6 },
+{ name: "Богота", lat: 4.71, lon: -74.07, tz: -5 },
+{ name: "Буэнос-Айрес", lat: -34.60, lon: -58.38, tz: -3 },
+{ name: "Варшава", lat: 52.23, lon: 21.01, tz: 1 },
+{ name: "Ванкувер", lat: 49.28, lon: -123.12, tz: -8 },
+{ name: "Вена", lat: 48.21, lon: 16.37, tz: 1 },
+{ name: "Вильнюс", lat: 54.69, lon: 25.28, tz: 2 },
+{ name: "Гавана", lat: 23.11, lon: -82.37, tz: -5 },
+{ name: "Гонконг", lat: 22.32, lon: 114.17, tz: 8 },
+{ name: "Гонолулу", lat: 21.31, lon: -157.86, tz: -10 },
+{ name: "Гродно", lat: 53.68, lon: 23.83, tz: 3 },
+{ name: "Женева", lat: 46.20, lon: 6.14, tz: 1 },
+{ name: "Дели", lat: 28.61, lon: 77.21, tz: 5.5 },
+{ name: "Джакарта", lat: -6.21, lon: 106.85, tz: 7 },
+{ name: "Дубай", lat: 25.20, lon: 55.27, tz: 4 },
+{ name: "Дублин", lat: 53.35, lon: -6.26, tz: 0 },
+{ name: "Душанбе", lat: 38.56, lon: 68.78, tz: 5 },
+{ name: "Ереван", lat: 40.18, lon: 44.51, tz: 4 },
+{ name: "Иерусалим", lat: 31.77, lon: 35.21, tz: 2 },
+{ name: "Йоханнесбург", lat: -26.20, lon: 28.05, tz: 2 },
+{ name: "Каир", lat: 30.04, lon: 31.24, tz: 2 },
+{ name: "Караганда", lat: 49.80, lon: 73.10, tz: 5 },
+{ name: "Каракас", lat: 10.48, lon: -66.90, tz: -4 },
+{ name: "Кейптаун", lat: -33.92, lon: 18.42, tz: 2 },
+{ name: "Киев", lat: 50.45, lon: 30.52, tz: 2 },
+{ name: "Кишинёв", lat: 47.01, lon: 28.86, tz: 2 },
+{ name: "Куала-Лумпур", lat: 3.14, lon: 101.69, tz: 8 },
+{ name: "Лагос", lat: 6.52, lon: 3.38, tz: 1 },
+{ name: "Лиссабон", lat: 38.72, lon: -9.14, tz: 0 },
+{ name: "Лондон", lat: 51.51, lon: -0.13, tz: 0 },
+{ name: "Лос-Анджелес", lat: 34.05, lon: -118.24, tz: -8 },
+{ name: "Мадрид", lat: 40.42, lon: -3.70, tz: 1 },
+{ name: "Майами", lat: 25.76, lon: -80.19, tz: -5 },
+{ name: "Манила", lat: 14.60, lon: 120.98, tz: 8 },
+{ name: "Мехико", lat: 19.43, lon: -99.13, tz: -6 },
+{ name: "Минск", lat: 53.90, lon: 27.57, tz: 3 },
+{ name: "Мумбаи", lat: 19.08, lon: 72.88, tz: 5 },
+{ name: "Мюнхен", lat: 48.14, lon: 11.58, tz: 1 },
+{ name: "Найроби", lat: -1.29, lon: 36.82, tz: 3 },
+{ name: "Нью-Йорк", lat: 40.71, lon: -74.01, tz: -5 },
+{ name: "Одесса", lat: 46.48, lon: 30.73, tz: 2 },
+{ name: "Окленд", lat: -36.85, lon: 174.76, tz: 12 },
+{ name: "Осака", lat: 34.69, lon: 135.50, tz: 9 },
+{ name: "Париж", lat: 48.86, lon: 2.35, tz: 1 },
+{ name: "Пекин", lat: 39.90, lon: 116.41, tz: 8 },
+{ name: "Прага", lat: 50.08, lon: 14.44, tz: 1 },
+{ name: "Рейкьявик", lat: 64.15, lon: -21.94, tz: 0 },
+{ name: "Рига", lat: 56.95, lon: 24.11, tz: 2 },
+{ name: "Рим", lat: 41.90, lon: 12.50, tz: 1 },
+{ name: "Рио-де-Жанейро", lat: -22.91, lon: -43.17, tz: -3 },
+{ name: "Самарканд", lat: 39.66, lon: 66.96, tz: 5 },
+{ name: "Сан-Паулу", lat: -23.55, lon: -46.63, tz: -3 },
+{ name: "Сан-Франциско", lat: 37.77, lon: -122.42, tz: -8 },
+{ name: "Сантьяго", lat: -33.45, lon: -70.67, tz: -4 },
+{ name: "Сеул", lat: 37.57, lon: 126.98, tz: 9 },
+{ name: "Сидней", lat: -33.87, lon: 151.21, tz: 10 },
+{ name: "Сингапур", lat: 1.35, lon: 103.82, tz: 8 },
+{ name: "Стамбул", lat: 41.01, lon: 28.98, tz: 3 },
+{ name: "Стокгольм", lat: 59.33, lon: 18.07, tz: 1 },
+{ name: "Таллин", lat: 59.44, lon: 24.75, tz: 2 },
+{ name: "Ташкент", lat: 41.30, lon: 69.24, tz: 5 },
+{ name: "Тбилиси", lat: 41.72, lon: 44.79, tz: 4 },
+{ name: "Токио", lat: 35.68, lon: 139.65, tz: 9 },
+{ name: "Торонто", lat: 43.65, lon: -79.38, tz: -5 },
+{ name: "Харьков", lat: 49.99, lon: 36.23, tz: 2 },
+{ name: "Хельсинки", lat: 60.17, lon: 24.94, tz: 2 },
+{ name: "Шанхай", lat: 31.23, lon: 121.47, tz: 8 },
+{ name: "Эдинбург", lat: 55.95, lon: -3.19, tz: 0 }
+];
+function fmtDateShort(d){ return d.getDate()+' '+MONTHS_SHORT[d.getMonth()]; }
+
+/* ---------- Астрономия (NOAA) ---------- */
+function solarEvents(date, lat, lon){
+  const D = Math.PI / 180;
+  const jdNoon = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 12) / 86400000 + 2440587.5;
+  const n = Math.round(jdNoon - 2451545.0);
+  const Jstar = n - lon / 360;
+  const M   = (357.5291 + 0.98560028 * Jstar) % 360;
+  const C   = 1.9148 * Math.sin(M * D) + 0.02 * Math.sin(2 * M * D) + 0.0003 * Math.sin(3 * M * D);
+  const lam = (M + C + 180 + 102.9372) % 360;
+  const Jt  = 2451545.0 + Jstar + 0.0053 * Math.sin(M * D) - 0.0069 * Math.sin(2 * lam * D);
+  const sinLat = Math.sin(lat * D), cosLat = Math.cos(lat * D);
+  const delta  = Math.asin(Math.sin(lam * D) * Math.sin(23.44 * D));
+  
+  function getTime(h){
+    const cosW = (Math.sin(h * D) - sinLat * Math.sin(delta)) / (cosLat * Math.cos(delta));
+    if (Math.abs(cosW) > 1) return { rise: null, set: null };
+    const w = Math.acos(cosW) / D;
+    const msRise = (Jt - w / 360 - 2440587.5) * 86400000;
+    const msSet = (Jt + w / 360 - 2440587.5) * 86400000;
+    return { rise: msRise, set: msSet };
+  }
+  
+  const t0 = getTime(-0.833);
+  const t6 = getTime(-6);
+  
+  return {
+    sunrise: t0.rise, sunset: t0.set,
+    civilDawn: t6.rise, civilDusk: t6.set
+  };
+}
+
+function fmtTime(msTime, tzHours){
+  if (msTime === null) return '—';
+  const d = new Date(msTime + tzHours * 3600000);
+  const h = d.getUTCHours();
+  const m = d.getUTCMinutes();
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+function fmtDuration(minutes){
+  if (minutes === null || isNaN(minutes)) return '—';
+  const h = Math.floor(minutes/60), m = Math.round(minutes%60);
+  return h+' ч '+String(m).padStart(2,'0')+' мин';
+}
+
+function fmtHM(minutes){
+  if (minutes === null || isNaN(minutes)) return '—';
+  const h = Math.floor(minutes/60), m = Math.round(minutes%60);
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+function fmtDiff(minutes){
+  if (minutes === null || isNaN(minutes)) return '';
+  const sign = minutes>0?'+':(minutes<0?'−':'');
+  const a = Math.abs(Math.round(minutes));
+  const h = Math.floor(a/60), m = a%60;
+  const txt = h>0 ? (h+' ч '+String(m).padStart(2,'0')+' мин') : (m+' мин');
+  return sign + txt;
+}
+
+function dayLength(ev){
+  if (ev.sunrise===null || ev.sunset===null) return null;
+  return (ev.sunset - ev.sunrise) / 60000;
+}
+
+/* ============================================================
+   ЛУНА: положение, фаза, восход/закат
+   Упрощённый алгоритм Meeus (точность ~1° по долготе)
+   ============================================================ */
+
+// Позиция Луны (эклиптическая долгота, широта) на момент JD
+function moonPosition(jd){
+  const D = Math.PI / 180;
+  const T = (jd - 2451545.0) / 36525;
+
+  // Средние элементы
+  const Lp = (218.3164477 + 481267.88123421 * T
+            - 0.0015786 * T * T + T * T * T / 538841 - T * T * T * T / 65194000) % 360;
+  const Mp = (134.9633964 + 477198.8675055 * T
+            + 0.0087414 * T * T + T * T * T / 69699 - T * T * T * T / 14712000) % 360;
+  const F  = (93.2720950 + 483202.0175233 * T
+            - 0.0036539 * T * T - T * T * T / 3526000 + T * T * T * T / 863310000) % 360;
+  const L0 = (280.46646 + 36000.76983 * T + 0.0003032 * T * T) % 360;
+  const M  = (357.52911 + 35999.05029 * T - 0.0001537 * T * T) % 360;
+  const C  = (1.914602 - 0.004817 * T - 0.000014 * T * T) * Math.sin(M * D)
+           + (0.019993 - 0.000101 * T) * Math.sin(2 * M * D)
+           + 0.000289 * Math.sin(3 * M * D);
+  const sunLon = (L0 + C) % 360;
+
+  // Основные возмущения долготы Луны
+  const dL = 6.288774 * Math.sin(Mp * D)
+           + 1.274027 * Math.sin((2 * (Lp - sunLon) - Mp) * D)
+           + 0.658314 * Math.sin(2 * (Lp - sunLon) * D)
+           + 0.213618 * Math.sin(2 * Mp * D)
+           - 0.185116 * Math.sin(M * D)
+           - 0.114332 * Math.sin(2 * F * D)
+           + 0.058793 * Math.sin((2 * (Lp - sunLon) - 2 * Mp) * D)
+           + 0.057066 * Math.sin((2 * (Lp - sunLon) - M - Mp) * D)
+           + 0.053322 * Math.sin((2 * (Lp - sunLon) + Mp) * D)
+           + 0.045758 * Math.sin((2 * (Lp - sunLon) - M) * D)
+           - 0.040923 * Math.sin((M - Mp) * D)
+           - 0.034720 * Math.sin((Lp - sunLon) * D)
+           - 0.030383 * Math.sin((M + Mp) * D)
+           + 0.015327 * Math.sin((2 * (Lp - sunLon) - 2 * F) * D)
+           - 0.012528 * Math.sin((Mp + 2 * F) * D)
+           + 0.010980 * Math.sin((Mp - 2 * F) * D);
+
+  // Возмущения широты
+  const dB = 5.128122 * Math.sin(F * D)
+           + 0.280602 * Math.sin((Mp + F) * D)
+           + 0.277693 * Math.sin((Mp - F) * D)
+           + 0.173237 * Math.sin((2 * (Lp - sunLon) - F) * D)
+           + 0.055413 * Math.sin((2 * (Lp - sunLon) - Mp + F) * D)
+           + 0.046271 * Math.sin((2 * (Lp - sunLon) - Mp - F) * D)
+           + 0.032573 * Math.sin((2 * (Lp - sunLon) + F) * D)
+           + 0.017198 * Math.sin((2 * Mp + F) * D)
+           + 0.009266 * Math.sin((2 * (Lp - sunLon) + Mp - F) * D)
+           + 0.008822 * Math.sin((2 * Mp - F) * D);
+
+  const moonLon = (Lp + dL) % 360;
+  const moonLat = dB;  // широта Луны (градусы)
+
+  // Угловое расстояние от Солнца (элонгация)
+  let elong = ((moonLon - sunLon) % 360 + 360) % 360;
+
+  return { lon: moonLon, lat: moonLat, elong, sunLon };
+}
+
+// Освещённая доля (0..1) и направление (растущая/убывающая)
+function moonPhaseInfo(jd){
+  const D = Math.PI / 180;
+  const p = moonPosition(jd);
+  const illum = (1 - Math.cos(p.elong * D)) / 2;
+  const waxing = p.elong < 180;   // 0..180 = растущая, 180..360 = убывающая
+  return { illum, elong: p.elong, waxing };
+}
+
+// Восход/закат Луны для заданной даты и координат
+function moonRiseSet(date, lat, lon){
+  const D = Math.PI / 180;
+  const dayStartUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 0) / 86400000 + 2440587.5;
+  const dayEndUTC   = dayStartUTC + 1;
+
+  // Высота Луны над горизонтом в момент jd (учитывая рефракцию + параллакс)
+  // Стандартная высота для Луны: h = +0.125° (центр), либо −0.833° для края.
+  // Будем использовать −0.583° (рефракция + полудиаметр + параллакс) — даёт хорошую точность.
+  function altitude(jd){
+    const p = moonPosition(jd);
+    // Прямое восхождение и склонение Луны через эклиптические координаты
+    const eps = 23.4392911 * D;
+    const L = p.lon * D, B = p.lat * D;
+    const sinDec = Math.sin(B) * Math.cos(eps) + Math.cos(B) * Math.sin(eps) * Math.sin(L);
+    const dec = Math.asin(sinDec);
+    // Часовой угол
+    const ra = Math.atan2(Math.sin(L) * Math.cos(eps) - Math.tan(B) * Math.sin(eps), Math.cos(L));
+    const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
+    const ha = ((gmst + lon - ra / D) % 360 + 360) % 360;
+    const haRad = ha * D;
+    // Высота
+    const sinAlt = Math.sin(lat * D) * sinDec + Math.cos(lat * D) * Math.cos(dec) * Math.cos(haRad);
+    return Math.asin(sinAlt) / D;
+  }
+
+  // Ищем пересечение h = -0.583° в течение суток с шагом 10 минут
+  const step = 10 / (60 * 24);
+  const H0 = -0.583;
+  let rise = null, set = null;
+  let prevAlt = altitude(dayStartUTC);
+
+  for (let jd = dayStartUTC + step; jd <= dayEndUTC; jd += step){
+    const alt = altitude(jd);
+    if (prevAlt < H0 && alt >= H0 && rise === null){
+      // восход
+      const frac = (H0 - prevAlt) / (alt - prevAlt);
+      rise = jd - step + step * frac;
+    }
+    if (prevAlt >= H0 && alt < H0 && set === null){
+      // закат
+      const frac = (prevAlt - H0) / (prevAlt - alt);
+      set = jd - step + step * frac;
+    }
+    prevAlt = alt;
+  }
+
+  // JD → мс UNIX (UTC)
+  const toMs = jd => (jd - 2440587.5) * 86400000;
+  return {
+    rise: rise !== null ? toMs(rise) : null,
+    set:  set  !== null ? toMs(set)  : null
+  };
+}
+
+// Высота Солнца над горизонтом в момент jd (для графика)
+function sunAltitude(jd, lat, lon){
+  const D = Math.PI / 180;
+  const jdNoon = Math.floor(jd - 0.5) + 0.5;
+  const n = Math.round(jdNoon - 2451545.0);
+  const Jstar = n - lon / 360;
+  const M = (357.5291 + 0.98560028 * Jstar) % 360;
+  const C = 1.9148 * Math.sin(M * D) + 0.02 * Math.sin(2 * M * D) + 0.0003 * Math.sin(3 * M * D);
+  const lam = (M + C + 180 + 102.9372) % 360;
+  const eps = 23.4392911 * D;
+  const dec = Math.asin(Math.sin(lam * D) * Math.sin(eps));
+  const ra = Math.atan2(Math.sin(lam * D) * Math.cos(eps), Math.cos(lam * D));
+  const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
+  const ha = ((gmst + lon - ra / D) % 360 + 360) % 360;
+  const sinAlt = Math.sin(lat * D) * Math.sin(dec) + Math.cos(lat * D) * Math.cos(dec) * Math.cos(ha * D);
+  return Math.asin(sinAlt) / D;
+}
+
+// Высота Луны (для графика) — та же, что внутри moonRiseSet, вынесем
+function moonAltitudeAt(jd, lat, lon){
+  const D = Math.PI / 180;
+  const p = moonPosition(jd);
+  const eps = 23.4392911 * D;
+  const L = p.lon * D, B = p.lat * D;
+  const sinDec = Math.sin(B) * Math.cos(eps) + Math.cos(B) * Math.sin(eps) * Math.sin(L);
+  const dec = Math.asin(sinDec);
+  const ra = Math.atan2(Math.sin(L) * Math.cos(eps) - Math.tan(B) * Math.sin(eps), Math.cos(L));
+  const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0)) % 360;
+  const ha = ((gmst + lon - ra / D) % 360 + 360) % 360;
+  const sinAlt = Math.sin(lat * D) * sinDec + Math.cos(lat * D) * Math.cos(dec) * Math.cos(ha * D);
+  return Math.asin(sinAlt) / D;
+}
+
+// Название фазы по элонгации и освещённости (для сводки)
+function moonPhaseName(illum, waxing){
+  if (illum < 0.03) return 'Новолуние';
+  if (illum > 0.97) return 'Полнолуние';
+  if (illum < 0.47) return waxing ? 'Растущий серп' : 'Убывающий серп';
+  if (illum < 0.53) return waxing ? 'Первая четверть' : 'Последняя четверть';
+  return waxing ? 'Растущая Луна' : 'Убывающая Луна';
+}
+
+// Эмодзи фазы
+function moonPhaseEmoji(illum, waxing){
+  if (illum < 0.03) return '🌑';
+  if (illum > 0.97) return '🌕';
+  if (illum < 0.23) return waxing ? '🌒' : '🌘';
+  if (illum < 0.53) return waxing ? '🌓' : '🌗';
+  if (illum < 0.77) return waxing ? '🌔' : '🌖';
+  return waxing ? '🌔' : '🌖';
+}
+
+// Краткое название для карточки «Сегодня»
+function moonShortName(illum, waxing){
+  if (illum < 0.03) return 'новая';
+  if (illum > 0.97) return 'полная';
+  return waxing ? 'растущая' : 'убывающая';
+}
+
+const tzSelect = document.getElementById('tz');
+for (let z=-12; z<=14; z++){
+  const o = document.createElement('option');
+  o.value = z;
+  o.textContent = 'UTC' + (z>=0?'+':'') + z;
+  if (z===3) o.selected = true;
+  tzSelect.appendChild(o);
+}
+
+const citySelect = document.getElementById('citySelect');
+CITIES.forEach((city, index) => {
+  const opt = document.createElement('option');
+  opt.value = index;
+  opt.textContent = city.name;
+  citySelect.appendChild(opt);
+});
+
+const state = {
+  lat: 56.86, lon: 35.91, tz: 3,
+  today: startOfDay(new Date()),
+  offset: 0
+};
+
+function buildWindow(){
+  const base = addDays(state.today, state.offset);
+  const days = [];
+  for (let i=-3; i<=10; i++) days.push(addDays(base, i));
+  return {days, base};
+}
+
+function renderToday(){
+  const ev = solarEvents(state.today, state.lat, state.lon);
+  const dl = dayLength(ev);
+  const grid = document.getElementById('todayGrid');
+
+  // Луна
+  const jdNow = Date.UTC(state.today.getFullYear(), state.today.getMonth(), state.today.getDate(), 12) / 86400000 + 2440587.5;
+  const ph = moonPhaseInfo(jdNow);
+  const moonShort = moonShortName(ph.illum, ph.waxing);
+  const moonPct = Math.round(ph.illum * 100);
+
+  const items = [
+    {k:'Рассвет', v: fmtTime(ev.civilDawn, state.tz)},
+    {k:'Восход', v:fmtTime(ev.sunrise, state.tz)},
+    {k:'Закат', v:fmtTime(ev.sunset, state.tz)},
+    {k:'Конец сумерек', v: fmtTime(ev.civilDusk, state.tz)},
+    {k:'Долгота дня', v:fmtHM(dl)},
+    {k:'Луна ' + moonShort, v: moonPct + '%', moon: true}
+  ];
+
+  grid.innerHTML = items.map(it =>
+    `<div class="card${it.moon ? ' moon-card' : ''}"><div class="k">${it.k}</div><div class="v">${it.v}</div></div>`
+  ).join('');
+}
+
+function renderTable(){
+  console.log('renderTable вызван');
+  const {days} = buildWindow();
+  const rows = [
+    {label:'Рассвет', key:'dawn'},
+    {label:'Восход', key:'sunrise'},
+    {label:'Закат', key:'sunset'},
+    {label:'Конец сумерек', key:'dusk'},
+    {label:'Долгота дня', key:'dl'}
+  ];
+
+  let html = '<thead><tr><th style="width:110px"></th>';
+  days.forEach(d=>{
+    const isToday = d.getTime()===state.today.getTime();
+    html += `<th class="${isToday?'today-col':''}">${fmtDateShort(d)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  const evs = days.map(d=>solarEvents(d, state.lat, state.lon));
+  const dls = evs.map(ev=>dayLength(ev));
+  const evsPrev = days.map(d => solarEvents(addDays(d, -1), state.lat, state.lon));
+  const dlsPrev = evsPrev.map(ev=>dayLength(ev));
+
+  rows.forEach(row=>{
+    html += `<tr><td class="row-label">${row.label}</td>`;
+    days.forEach((d,i)=>{
+      const isToday = d.getTime()===state.today.getTime();
+      let cell = '';
+      if (row.key==='sunrise'){
+        cell = fmtTime(evs[i].sunrise, state.tz);
+        if (!isToday && evs[i].sunrise!==null && evsPrev[i].sunrise!==null){
+          let diffMin = (evs[i].sunrise - evsPrev[i].sunrise) / 60000;
+          if (diffMin > 720) diffMin -= 1440;
+          if (diffMin < -720) diffMin += 1440;
+          cell += `<span class="diff ${diffMin>=0?'pos':'neg'}">${fmtDiff(diffMin)}</span>`;
+        }
+      } else if (row.key==='sunset'){
+        cell = fmtTime(evs[i].sunset, state.tz);
+        if (!isToday && evs[i].sunset!==null && evsPrev[i].sunset!==null){
+          let diffMin = (evs[i].sunset - evsPrev[i].sunset) / 60000;
+          if (diffMin > 720) diffMin -= 1440;
+          if (diffMin < -720) diffMin += 1440;
+          cell += `<span class="diff ${diffMin>=0?'pos':'neg'}">${fmtDiff(diffMin)}</span>`;
+        }
+      } else if (row.key==='dl'){
+        cell = fmtHM(dls[i]);
+        if (!isToday && dls[i]!==null && dlsPrev[i]!==null){
+          cell += `<span class="diff ${dls[i]-dlsPrev[i]>=0?'pos':'neg'}">${fmtDiff(dls[i]-dlsPrev[i])}</span>`;
+        }
+      } else if (row.key==='dawn'){
+        cell = fmtTime(evs[i].civilDawn, state.tz);
+        if (!isToday && evs[i].civilDawn!==null && evsPrev[i].civilDawn!==null){
+          let diffMin = (evs[i].civilDawn - evsPrev[i].civilDawn) / 60000;
+          if (diffMin > 720) diffMin -= 1440;
+          if (diffMin < -720) diffMin += 1440;
+          cell += `<span class="diff ${diffMin>=0?'pos':'neg'}">${fmtDiff(diffMin)}</span>`;
+        }
+      } else if (row.key==='dusk'){
+        cell = fmtTime(evs[i].civilDusk, state.tz);
+        if (!isToday && evs[i].civilDusk!==null && evsPrev[i].civilDusk!==null){
+          let diffMin = (evs[i].civilDusk - evsPrev[i].civilDusk) / 60000;
+          if (diffMin > 720) diffMin -= 1440;
+          if (diffMin < -720) diffMin += 1440;
+          cell += `<span class="diff ${diffMin>=0?'pos':'neg'}">${fmtDiff(diffMin)}</span>`;
+        }
+      }
+      html += `<td class="${isToday?'today-col':''}">${cell}</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('table14').innerHTML = html;
+
+  const first = days[0], last = days[days.length-1];
+  document.getElementById('periodLabel').textContent = fmtDateShort(first)+' — '+fmtDateShort(last);
+}
+
+function renderChart14(){
+  console.log('renderChart14 вызван');
+  const svg = document.getElementById('chart14');
+  const table = document.getElementById('table14');
+  const {days} = buildWindow();
+
+  // Ждём, пока таблица отрисуется, чтобы прочитать реальные координаты колонок
+  const firstTh = table.querySelector('thead tr th:nth-child(2)');
+  const lastTh  = table.querySelector('thead tr th:last-child');
+  if (!firstTh || !lastTh){ svg.innerHTML=''; return; }
+
+  // Реальная ширина сцены (== ширина таблицы, т.к. обе внутри .scroll-inner)
+  const innerEl = svg.closest('.scroll-inner');
+  const W = innerEl ? innerEl.clientWidth : table.clientWidth;
+  const H = window.matchMedia('(max-width:640px)').matches ? 200 : 180;
+
+  // Реальные границы колонок дней в пикселях (относительно .scroll-inner)
+  const innerRect = (innerEl || table).getBoundingClientRect();
+  const firstRect = firstTh.getBoundingClientRect();
+  const lastRect  = lastTh.getBoundingClientRect();
+
+  const padL = firstRect.left - innerRect.left;           // левый край первой колонки дня
+  const padR = innerRect.right - lastRect.right;          // правый отступ
+  const colWidth = (lastRect.right - firstRect.left) / 14; // ширина одной колонки дня
+  const padT = 10, padB = 10;
+  const ih = H - padT - padB;
+
+  // x(i) — центр i-й колонки дня, в пикселях
+  const x = i => padL + (i + 0.5) * colWidth;
+
+  const dls = days.map(d=>dayLength(solarEvents(d, state.lat, state.lon))).map(v=>v===null?NaN:v);
+  const valid = dls.filter(v=>!isNaN(v));
+  if (!valid.length){ svg.innerHTML=''; return; }
+
+  const minV = Math.min(...valid)-10, maxV = Math.max(...valid)+10;
+  const y = v => padT + ih - (v-minV)/(maxV-minV)*ih;
+
+  // Задаём SVG реальные пиксельные размеры
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.style.width = '100%';
+  svg.style.height = H + 'px';
+
+  let path = '';
+  dls.forEach((v,i)=>{
+    if (isNaN(v)) return;
+    path += (path===''?'M':'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1) + ' ';
+  });
+
+  let grid = '';
+  for (let g=0; g<=4; g++){
+    const val = minV + (maxV-minV)*g/4;
+    const yy = y(val);
+    grid += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#3a3a4a" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${yy+3}" fill="#a0a0b0" font-size="10" text-anchor="end">${fmtDuration(val)}</text>`;
+  }
+
+  let dots = '';
+  days.forEach((d,i)=>{
+    if (isNaN(dls[i])) return;
+    const isToday = d.getTime()===state.today.getTime();
+    dots += `<circle cx="${x(i)}" cy="${y(dls[i])}" r="${isToday?4:2.5}" fill="${isToday?'#4cd964':'#7dd3fc'}"/>`;
+  });
+
+  svg.innerHTML = grid + `<path d="${path}" fill="none" stroke="#7dd3fc" stroke-width="2"/>` + dots;
+
+  const tt = document.getElementById('tt14');
+  svg.onmousemove = (e)=>{
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX-rect.left)/rect.width*W;
+    let best=-1, bd=1e9;
+    days.forEach((d,i)=>{ const dd=Math.abs(x(i)-mx); if(dd<bd){bd=dd;best=i;} });
+    if (best<0 || isNaN(dls[best])){ tt.classList.remove('on'); return; }
+    tt.innerHTML = `<b>${fmtDateShort(days[best])}</b><br>Долгота: ${fmtDuration(dls[best])}`;
+    tt.style.left = (e.clientX-rect.left+12)+'px';
+    tt.style.top = (e.clientY-rect.top-10)+'px';
+    tt.classList.add('on');
+  };
+  svg.onmouseleave = ()=> tt.classList.remove('on');
+}
+
+function renderChartLong(){
+  const svg = document.getElementById('chartLong');
+  const N = 425;
+  const start = addDays(state.today, -212);
+  const days = [];
+  const vals = [];
+  for (let i=0;i<N;i++){
+    const d = addDays(start, i);
+    days.push(d);
+    const dl = dayLength(solarEvents(d, state.lat, state.lon));
+    vals.push(dl===null?NaN:dl);
+  }
+  const valid = vals.filter(x=>!isNaN(x));
+  if (!valid.length){ svg.innerHTML=''; return; }
+  const minV = Math.min(...valid)-15, maxV = Math.max(...valid)+15;
+  const W=860, H=240, padL=60, padR=10, padT=10, padB=24;
+  const iw=W-padL-padR, ih=H-padT-padB;
+  const x = i => padL + i*iw/(N-1);
+  const y = v => padT + ih - (v-minV)/(maxV-minV)*ih;
+
+  let path='';
+  vals.forEach((v,i)=>{
+    if (isNaN(v)) return;
+    path += (path===''?'M':'L') + x(i).toFixed(1)+','+y(v).toFixed(1)+' ';
+  });
+
+  let grid='';
+  for (let g=0;g<=4;g++){
+    const val = minV+(maxV-minV)*g/4;
+    const yy = y(val);
+    grid += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#3a3a4a" stroke-width="1"/>`;
+    grid += `<text x="${padL-8}" y="${yy+3}" fill="#a0a0b0" font-size="10" text-anchor="end">${fmtDuration(val)}</text>`;
+  }
+
+  let monthLabels='';
+  let lastMonth=-1;
+  days.forEach((d,i)=>{
+    if (d.getMonth()!==lastMonth && d.getDate()<=7){
+      lastMonth = d.getMonth();
+      monthLabels += `<text x="${x(i)}" y="${H-8}" fill="#a0a0b0" font-size="10" text-anchor="middle">${MONTHS_SHORT[d.getMonth()]}</text>`;
+    }
+  });
+
+  const todayIdx = 212;
+  let todayMark='';
+  if (todayIdx>=0 && todayIdx<N){
+    todayMark = `<line x1="${x(todayIdx)}" y1="${padT}" x2="${x(todayIdx)}" y2="${H-padB}" stroke="#4cd964" stroke-width="1" stroke-dasharray="4 3"/>`;
+  }
+
+  svg.innerHTML = grid + `<path d="${path}" fill="none" stroke="#7dd3fc" stroke-width="2"/>` + todayMark + monthLabels;
+
+  const tt = document.getElementById('ttLong');
+  svg.onmousemove = (e)=>{
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX-rect.left)/rect.width*W;
+    let best=-1, bd=1e9;
+    days.forEach((d,i)=>{ const dd=Math.abs(x(i)-mx); if(dd<bd){bd=dd;best=i;} });
+    if (best<0 || isNaN(vals[best])){ tt.classList.remove('on'); return; }
+    tt.innerHTML = `<b>${fmtDateShort(days[best])}</b><br>Долгота: ${fmtDuration(vals[best])}`;
+    tt.style.left = (e.clientX-rect.left+12)+'px';
+    tt.style.top = (e.clientY-rect.top-10)+'px';
+    tt.classList.add('on');
+  };
+  svg.onmouseleave = ()=> tt.classList.remove('on');
+}
+
+/* ============================================================
+   ОТРИСОВКА БЛОКА «ЛУНА»
+   ============================================================ */
+
+function renderMoonGrid(){
+  const jdNow = Date.UTC(state.today.getFullYear(), state.today.getMonth(), state.today.getDate(), 12) / 86400000 + 2440587.5;
+  const ph = moonPhaseInfo(jdNow);
+  const rs = moonRiseSet(state.today, state.lat, state.lon);
+
+  const items = [
+    {k:'Фаза', v: `${moonPhaseEmoji(ph.illum, ph.waxing)} ${moonPhaseName(ph.illum, ph.waxing)}`, s: Math.round(ph.illum*100)+'%'},
+    {k:'Восход', v: fmtTime(rs.rise, state.tz)},
+    {k:'Закат',  v: fmtTime(rs.set,  state.tz)}
+  ];
+
+  document.getElementById('moonGrid').innerHTML = items.map(it =>
+    `<div class="card"><div class="k">${it.k}</div><div class="v">${it.v}</div>${it.s ? `<div class="s">${it.s}</div>` : ''}</div>`
+  ).join('');
+}
+
+function renderChartMoon(){
+  const svg = document.getElementById('chartMoon');
+  const today = state.today;
+
+  // Позиция местной полуночи (сдвигаем на часовой пояс)
+  const jdNoon = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 12) / 86400000 + 2440587.5;
+  const jdStart = jdNoon - 0.5 - (state.tz / 24);
+
+  // Найдём восход и закат Солнца для определения ночных участков
+  const ev = solarEvents(today, state.lat, state.lon);
+  // Солнечный восход/закат в JD
+  const jdSunrise = ev.sunrise !== null ? (ev.sunrise / 86400000 + 2440587.5) : null;
+  const jdSunset  = ev.sunset  !== null ? (ev.sunset  / 86400000 + 2440587.5) : null;
+
+  // Считаем высоты по 15 мин
+  const N = 96;
+  const altitudesMoon = [];
+  const altitudesSun  = [];
+  for (let i = 0; i <= N; i++){
+    const jd = jdStart + (i / N);
+    altitudesMoon.push({ jd, alt: moonAltitudeAt(jd, state.lat, state.lon) });
+    altitudesSun.push({ jd, alt: sunAltitude(jd, state.lat, state.lon) });
+  }
+
+  const W = 860, H = 240, padL = 42, padR = 10, padT = 10, padB = 24;
+  const iw = W - padL - padR, ih = H - padT - padB;
+
+  const x = i => padL + i * iw / N;
+  // Y: от -30° до +90°
+  const minAlt = -90, maxAlt = 90;
+  const y = a => padT + ih - (a - minAlt) / (maxAlt - minAlt) * ih;
+
+  // Ночные участки (тёмный фон) — до восхода и после заката Солнца
+  let nightBg = '';
+  // Дневной фон желтоватый: fill="#f4c542" с маленькой прозрачностью
+  let dayBg = `<rect x="${padL}" y="${padT}" width="${iw}" height="${ih}" fill="#f4c542" opacity="0.1"/>`;
+  // рассвет → восход: темно
+  const sunriseHour = ev.sunrise !== null ? ((ev.sunrise + state.tz*3600000) % 86400000) / 3600000 : null;
+  const sunsetHour  = ev.sunset  !== null ? ((ev.sunset  + state.tz*3600000) % 86400000) / 3600000 : null;
+
+  // Простая заливка: 0..sunriseHour и sunsetHour..24
+  if (sunriseHour !== null){
+    nightBg += `<rect x="${padL}" y="${padT}" width="${(sunriseHour/24)*iw}" height="${ih}" fill="#0f0f18" opacity="0.7"/>`;
+  }
+  if (sunsetHour !== null){
+    nightBg += `<rect x="${padL + (sunsetHour/24)*iw}" y="${padT}" width="${((24-sunsetHour)/24)*iw}" height="${ih}" fill="#0f0f18" opacity="0.7"/>`;
+  }
+
+  // Сетка и подписи оси Y
+  let grid = '';
+  for (let g = 0; g <= 6; g++){
+    const a = minAlt + (maxAlt - minAlt) * g / 6; // теперь шаг 30° (-90, -60, -30, 0, 30, 60, 90)
+    const yy = y(a);
+    if (a === 0) {
+      // Линия горизонта — делаем заметнее (сплошная, яркая)
+      grid += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#7dd3fc" stroke-width="1.5" opacity="0.6"/>`;
+      grid += `<text x="${padL-6}" y="${yy+3}" fill="#7dd3fc" font-size="10" text-anchor="end">0°</text>`;
+    } else {
+      // Остальная сетка
+      grid += `<line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#3a3a4a" stroke-width="1"/>`;
+      grid += `<text x="${padL-6}" y="${yy+3}" fill="#a0a0b0" font-size="10" text-anchor="end">${Math.round(a)}°</text>`;
+    }
+  }
+
+  // Сетка по X — каждый час
+  let xGrid = '';
+  for (let h = 0; h <= 24; h++){
+    const xx = padL + (h/24)*iw;
+    xGrid += `<line x1="${xx}" y1="${padT}" x2="${xx}" y2="${H-padB}" stroke="#3a3a4a" stroke-width="1" opacity="0.3"/>`;
+  }
+
+  // Подписи по X — каждые 4 часа
+  let xLabels = '';
+  for (let h = 0; h <= 24; h += 4){
+    const xx = padL + (h/24)*iw;
+    xLabels += `<text x="${xx}" y="${H-8}" fill="#a0a0b0" font-size="10" text-anchor="middle">${String(h).padStart(2, '0')}:00</text>`;
+  }
+
+  // Линии высот
+  let pathSun = '', pathMoon = '';
+  altitudesSun.forEach((p, i) => {
+    pathSun += (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(p.alt).toFixed(1) + ' ';
+  });
+  altitudesMoon.forEach((p, i) => {
+    pathMoon += (i===0?'M':'L') + x(i).toFixed(1) + ',' + y(p.alt).toFixed(1) + ' ';
+  });
+
+  // Текущее время — вертикальная линия
+  const now = new Date();
+  const nowHour = now.getHours() + now.getMinutes() / 60;
+  const nowX = padL + (nowHour/24)*iw;
+  const nowLine = `<line x1="${nowX}" y1="${padT}" x2="${nowX}" y2="${H-padB}" stroke="#4cd964" stroke-width="1" stroke-dasharray="4 3"/>`;
+
+   svg.innerHTML = dayBg + nightBg + grid + xGrid + xLabels + nowLine +
+    `<path d="${pathSun}" fill="none" stroke="#f4c542" stroke-width="2"/>` +
+    `<path d="${pathMoon}" fill="none" stroke="#c8c0e8" stroke-width="2"/>`;
+
+  // Тултип
+  const tt = document.getElementById('ttMoon');
+  svg.onmousemove = (e) => {
+    const rect = svg.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) / rect.width * W;
+    let best = -1, bd = 1e9;
+    for (let i = 0; i <= N; i++){
+      const dd = Math.abs(x(i) - mx);
+      if (dd < bd){ bd = dd; best = i; }
+    }
+    if (best < 0){ tt.classList.remove('on'); return; }
+    const hour = Math.round(best * 24 / N);
+    const hh = String(Math.floor(hour)).padStart(2,'0');
+    const sunA = altitudesSun[best].alt.toFixed(0);
+    const moonA = altitudesMoon[best].alt.toFixed(0);
+    tt.innerHTML = `<b>${hh}:00</b><br>Солнце: ${sunA}°<br>Луна: ${moonA}°`;
+    tt.style.left = (e.clientX - rect.left + 12) + 'px';
+    tt.style.top = (e.clientY - rect.top - 10) + 'px';
+    tt.classList.add('on');
+  };
+  svg.onmouseleave = () => tt.classList.remove('on');
+}
+
+function renderTableMoon(){
+  const rows = [];
+  for (let i = -3; i <= 10; i++) rows.push(addDays(state.today, i));
+
+  // Формируем заголовок (дни)
+  let html = '<thead><tr><th style="width:110px"></th>';
+  rows.forEach(d => {
+    const isToday = d.getTime() === state.today.getTime();
+    html += `<th class="${isToday ? 'today-col' : ''}">${fmtDateShort(d)}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Строки: Фаза (эмодзи), Освещённость, Восход, Закат
+  const rowDefs = [
+    { label: 'Фаза', key: 'emoji' },
+    { label: 'Освещённость', key: 'illum' },
+    { label: 'Восход', key: 'rise' },
+    { label: 'Закат', key: 'set' }
+  ];
+
+  // Заранее считаем все данные для каждого дня
+  const data = rows.map(d => {
+    const jd = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12) / 86400000 + 2440587.5;
+    const ph = moonPhaseInfo(jd);
+    const rs = moonRiseSet(d, state.lat, state.lon);
+    return { ph, rs };
+  });
+
+  rowDefs.forEach(row => {
+    html += `<tr><td class="row-label">${row.label}</td>`;
+    rows.forEach((d, i) => {
+      const isToday = d.getTime() === state.today.getTime();
+      const { ph, rs } = data[i];
+      let cell = '';
+
+      if (row.key === 'emoji') {
+        cell = `<span style="font-size:1.3em; line-height:1">${moonPhaseEmoji(ph.illum, ph.waxing)}</span>`;
+      } else if (row.key === 'illum') {
+        cell = Math.round(ph.illum * 100) + '%';
+      } else if (row.key === 'rise') {
+        cell = fmtTime(rs.rise, state.tz);
+      } else if (row.key === 'set') {
+        cell = fmtTime(rs.set, state.tz);
+      }
+
+      html += `<td class="${isToday ? 'today-col' : ''}">${cell}</td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  document.getElementById('tableMoon').innerHTML = html;
+}
+
+function renderMoon(){
+  renderMoonGrid();
+  renderChartMoon();
+  renderTableMoon();
+}
+
+function renderAll(){
+  renderToday();
+  if (panel14.open){
+    renderTable();
+    renderChart14();
+    chart14Rendered = true;
+  }
+  if (panelLong.open){
+    renderChartLong();
+    chartLongRendered = true;
+  }
+  if (panelMoon.open){
+    renderMoon();
+    moonRendered = true;
+  }
+}
+
+function updateClock() {
+  const el = document.getElementById('currentTime');
+  if (!el) return;
+  
+  // Получаем текущее время UTC и прибавляем выбранный часовой пояс
+  const now = new Date();
+  const utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const localDate = new Date(utcMs + (state.tz * 3600000));
+  
+  const h = String(localDate.getHours()).padStart(2, '0');
+  const m = String(localDate.getMinutes()).padStart(2, '0');
+  const s = String(localDate.getSeconds()).padStart(2, '0');
+  
+  el.value = `${h}:${m}:${s}`;
+}
+ 
+document.getElementById('recalc').addEventListener('click', ()=>{
+  document.getElementById('citySelect').value = 'custom';
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lon = parseFloat(document.getElementById('lon').value);
+  const tz = parseInt(document.getElementById('tz').value);
+  if (isNaN(lat) || isNaN(lon)){ alert('Введите корректные координаты'); return; }
+  state.lat = lat; state.lon = lon; state.tz = tz;
+  renderAll();
+});
+
+document.getElementById('slider').addEventListener('input', (e)=>{
+  state.offset = parseInt(e.target.value);
+  renderTable();
+  renderChart14();
+});
+
+document.getElementById('backToday').addEventListener('click', ()=>{
+  state.offset = 0;
+  document.getElementById('slider').value = 0;
+  renderTable();
+  renderChart14();
+});
+
+// 1. Сначала объявляем переменные и навешиваем обработчики на панели
+let chart14Rendered = false;
+let chartLongRendered = false;
+
+const panel14 = document.getElementById('panel14');
+const panelLong = document.getElementById('panelLong');
+
+panel14.addEventListener('toggle', ()=>{
+  if (panel14.open){
+    // Ждём кадр, чтобы браузер успел отрисовать панель и вычислить размеры
+    requestAnimationFrame(()=>{
+      renderTable();
+      renderChart14();
+      chart14Rendered = true;
+    });
+  }
+});
+
+panelLong.addEventListener('toggle', ()=>{
+  if (panelLong.open){
+    requestAnimationFrame(()=>{
+      renderChartLong();
+      chartLongRendered = true;
+    });
+  }
+});
+
+const panelMoon = document.getElementById('panelMoon');
+let moonRendered = false;
+
+panelMoon.addEventListener('toggle', () => {
+  if (panelMoon.open){
+    requestAnimationFrame(() => {
+      renderMoon();
+      moonRendered = true;
+    });
+  }
+});
+
+// 2. Обработчик выбора города (закрываем его правильно)
+citySelect.addEventListener('change', (e) => {
+  const val = e.target.value;
+  if (val === 'custom') return;
+
+  const city = CITIES[val];
+  if (!city) return;
+
+  document.getElementById('lat').value = city.lat;
+  document.getElementById('lon').value = city.lon;
+  document.getElementById('tz').value = city.tz;
+
+  state.lat = city.lat;
+  state.lon = city.lon;
+  state.tz = city.tz;
+  state.offset = 0;
+  document.getElementById('slider').value = 0;
+  
+  renderAll(); // <-- renderAll теперь вызывается при смене города
+});
+
+// Обновляем часы каждую секунду
+setInterval(updateClock, 1000);
+
+// 3. И только в самом конце — первый запуск при загрузке страницы
+renderAll();
+
+</script>
+</body>
+</html>

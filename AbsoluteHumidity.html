@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор абсолютной влажности (Сравнение)</title>
+    <style>
+        :root {
+            --bg-color: #1e1e24;
+            --panel-bg: #2b2b36;
+            --input-bg: #15151a;
+            --accent: #4cd964;
+            --text-main: #f0f0f0;
+            --text-muted: #a0a0b0;
+            --border-color: #3a3a4a;
+            --water-light: #7dd3fc;
+            --water-dark: #0284c7;
+            --risk-low: #4cd964;
+            --risk-mid: #ffcc00;
+            --risk-high: #ff453a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Верхний блок сравнения с потоком */
+        .diff-box {
+            background-color: var(--input-bg);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid var(--border-color);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 15px;
+            min-height: 160px;
+            position: relative;
+        }
+
+        /* Контейнеры для потока */
+        .flow-zone {
+            position: relative;
+            height: 150px;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+        .flow-zone.active {
+            opacity: 1;
+        }
+        /* Если поток выключен глобально — принудительно скрываем */
+        .diff-box.flow-disabled .flow-zone {
+            opacity: 0 !important;
+        }
+
+        /* Капли */
+        .droplet {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, var(--water-light), var(--water-dark));
+            box-shadow: 0 0 3px rgba(125, 211, 252, 0.4);
+            opacity: 0;
+        }
+
+        /* Анимация вправо */
+        @keyframes flowRight {
+            0%   { left: 0%;   opacity: 0; transform: scale(0.4); }
+            15%  { opacity: 1; transform: scale(1); }
+            85%  { opacity: 1; transform: scale(1); }
+            100% { left: 100%; opacity: 0; transform: scale(0.4); }
+        }
+
+        /* Анимация влево */
+        @keyframes flowLeft {
+            0%   { right: 0%;   opacity: 0; transform: scale(0.4); }
+            15%  { opacity: 1; transform: scale(1); }
+            85%  { opacity: 1; transform: scale(1); }
+            100% { right: 100%; opacity: 0; transform: scale(0.4); }
+        }
+
+        .flow-zone.right-flow .droplet {
+            animation: flowRight var(--flow-duration, 1.5s) linear infinite;
+        }
+        .flow-zone.left-flow .droplet {
+            animation: flowLeft var(--flow-duration, 1.5s) linear infinite;
+        }
+
+        /* Центральный блок с разницей */
+        .diff-center {
+            text-align: center;
+            z-index: 2;
+            padding: 0 10px;
+        }
+        .diff-title {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        .diff-content {
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .diff-sign {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--text-muted);
+        }
+        .diff-value {
+            font-size: 4em;
+            font-weight: bold;
+            color: #ffcc00;
+            line-height: 1;
+        }
+        .diff-unit {
+            font-size: 1em;
+            color: var(--text-muted);
+        }
+        .diff-description {
+            font-size: 0.9em;
+            color: var(--text-main);
+            margin-top: 5px;
+            font-weight: 600;
+        }
+
+        /* Кнопка переключения потока */
+        .flow-toggle {
+            display: block;
+            margin: 10px auto 0;
+            width: fit-content;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .flow-toggle:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .flow-toggle.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 8px rgba(76, 217, 100, 0.4);
+        }
+
+        /* Сетка для двух панелей */
+        .panels-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 768px) {
+            .panels-grid {
+                grid-template-columns: 1fr;
+            }
+            .diff-box {
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+            .flow-zone {
+                height: 40px;
+            }
+        }
+
+        /* Стили панели */
+        .panel {
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid var(--border-color);
+            position: relative;
+        }
+
+        .panel-a .panel-content { padding-right: 35px; }
+        .panel-b .panel-content { padding-left: 35px; }
+
+        .panel-content {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 10px;
+        }
+        .panel-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--text-main);
+            padding-top: 5px;
+        }
+        .panel-result-container {
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .panel-result-value {
+            font-size: 2.6em;
+            font-weight: bold;
+            color: var(--accent);
+            line-height: 1;
+        }
+        .panel-result-unit {
+            font-size: 0.8em;
+            color: var(--text-muted);
+        }
+
+        .dew-point-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 6px;
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin-top: 4px;
+            white-space: nowrap;
+        }
+        .dew-point-label { font-weight: 500; }
+        .dew-point-value { font-weight: 700; color: var(--text-main); }
+        .risk-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 2px;
+            cursor: help;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .risk-dot.low { background-color: var(--risk-low); box-shadow: 0 0 6px var(--risk-low); }
+        .risk-dot.mid { background-color: var(--risk-mid); box-shadow: 0 0 6px var(--risk-mid); }
+        .risk-dot.high { background-color: var(--risk-high); box-shadow: 0 0 6px var(--risk-high); }
+
+        /* Элементы управления */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+        .control-header label {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            font-size: 1.1em;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background-color: var(--input-bg);
+            color: var(--accent);
+            text-align: center;
+            font-weight: bold;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75em;
+            color: #707080;
+        }
+
+        /* Кнопка копирования */
+        .btn-copy {
+            margin-top: auto;
+            background-color: var(--border-color);
+            color: var(--text-muted);
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: background 0.2s, color 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .btn-copy:hover {
+            background-color: #4a4a5a;
+            color: var(--accent);
+        }
+
+        /* Шкалы */
+        .gauge-col {
+            position: absolute;
+            top: 20px;
+            bottom: 20px;
+            width: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .panel-a .gauge-col { right: 10px; }
+        .panel-b .gauge-col { left: 10px; }
+
+        .gauge-max-label {
+            font-size: 0.6em;
+            color: var(--text-muted);
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            margin-bottom: 5px;
+            white-space: nowrap;
+        }
+        .gauge-container {
+            position: relative;
+            width: 15px;
+            flex: 1;
+            background-color: var(--input-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+        }
+        .gauge-fill {
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, var(--water-light), var(--water-dark));
+            border-radius: 0 0 7px 7px;
+            transition: height 0.3s ease-out;
+        }
+        .gauge-marker {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.4);
+            z-index: 2;
+        }
+        .gauge-marker::after {
+            content: attr(data-label);
+            position: absolute;
+            font-size: 0.55em;
+            color: var(--text-muted);
+            white-space: nowrap;
+            top: -5px;
+        }
+        .panel-a .gauge-marker::after { right: 110%; }
+        .panel-b .gauge-marker::after { left: 110%; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Верхний блок сравнения с потоком -->
+    <div class="diff-box">
+        <!-- Левый поток (из Зоны А в Зону Б) -->
+        <div class="flow-zone right-flow" id="flowLeft">
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+        </div>
+
+        <!-- Центральное значение -->
+        <div class="diff-center">
+            <div class="diff-title">Разница абсолютной влажности</div>
+            <div class="diff-content">
+                <span class="diff-sign" id="diffSign"></span>
+                <span class="diff-value" id="diffValue">0.00</span>
+                <span class="diff-unit">г/м³</span>
+            </div>
+            <div class="diff-description" id="diffDescription"></div>
+			<!-- Кнопка переключения анимации -->
+            <button class="flow-toggle" id="flowToggle" title="Показать/скрыть направлением потока">⇄</button>
+        </div>
+
+        <!-- Правый поток (из Зоны Б в Зону А) -->
+        <div class="flow-zone left-flow" id="flowRight">
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+            <div class="droplet"></div><div class="droplet"></div><div class="droplet"></div>
+        </div>
+    </div>
+
+    <!-- Панели -->
+    <div class="panels-grid">
+        
+        <!-- ПАНЕЛЬ А -->
+        <div class="panel panel-a" id="panelA">
+            <div class="panel-content">
+                <div class="panel-header">
+                    <div class="panel-title">Зона А</div>
+                    <div class="panel-result-container">
+                        <div class="panel-result-value" id="resultA">0.00</div>
+                        <div class="panel-result-unit">г/м³</div>
+                        <div class="dew-point-row">
+                            <span class="dew-point-label">Точка росы:</span>
+                            <span class="dew-point-value" id="dewPointA">—</span>
+                            <span class="risk-dot low" id="riskDotA" title=""></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Температура (°C)</label>
+                        <input type="number" id="tAInput" min="-50" max="50" step="0.1" value="0.0">
+                    </div>
+                    <input type="range" id="tASlider" min="-50" max="50" step="0.1" value="0.0">
+                    <div class="range-labels"><span>-50°C</span><span>0°C</span><span>+50°C</span></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Влажность (%)</label>
+                        <input type="number" id="hAInput" min="1" max="100" step="1" value="80">
+                    </div>
+                    <input type="range" id="hASlider" min="1" max="100" step="1" value="80">
+                    <div class="range-labels"><span>1%</span><span>50%</span><span>100%</span></div>
+                </div>
+
+                <button class="btn-copy" onclick="copyValues('A', 'B')" title="Скопировать значения в Зону Б">→</button>
+            </div>
+
+            <div class="gauge-col">
+                <div class="gauge-max-label" id="gaugeMaxLabelA">макс. 50 г</div>
+                <div class="gauge-container">
+                    <div class="gauge-fill" id="gaugeFillA"></div>
+                    <div class="gauge-marker" id="markerA7" data-label="7"></div>
+                    <div class="gauge-marker" id="markerA15" data-label="15"></div>
+                    <div class="gauge-marker" id="markerA25" data-label="25"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ПАНЕЛЬ Б -->
+        <div class="panel panel-b" id="panelB">
+            <div class="panel-content">
+                <div class="panel-header">
+                    <div class="panel-title">Зона Б</div>
+                    <div class="panel-result-container">
+                        <div class="panel-result-value" id="resultB">0.00</div>
+                        <div class="panel-result-unit">г/м³</div>
+                        <div class="dew-point-row">
+                            <span class="dew-point-label">Точка росы:</span>
+                            <span class="dew-point-value" id="dewPointB">—</span>
+                            <span class="risk-dot low" id="riskDotB" title=""></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Температура (°C)</label>
+                        <input type="number" id="tBInput" min="-50" max="50" step="0.1" value="22.0">
+                    </div>
+                    <input type="range" id="tBSlider" min="-50" max="50" step="0.1" value="22.0">
+                    <div class="range-labels"><span>-50°C</span><span>0°C</span><span>+50°C</span></div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Влажность (%)</label>
+                        <input type="number" id="hBInput" min="1" max="100" step="1" value="40">
+                    </div>
+                    <input type="range" id="hBSlider" min="1" max="100" step="1" value="40">
+                    <div class="range-labels"><span>1%</span><span>50%</span><span>100%</span></div>
+                </div>
+
+                <button class="btn-copy" onclick="copyValues('B', 'A')" title="Скопировать значения в Зону А">←</button>
+            </div>
+
+            <div class="gauge-col">
+                <div class="gauge-max-label" id="gaugeMaxLabelB">макс. 50 г</div>
+                <div class="gauge-container">
+                    <div class="gauge-fill" id="gaugeFillB"></div>
+                    <div class="gauge-marker" id="markerB7" data-label="7"></div>
+                    <div class="gauge-marker" id="markerB15" data-label="15"></div>
+                    <div class="gauge-marker" id="markerB25" data-label="25"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    let flowEnabled = false; // По умолчанию поток выключен
+
+    const a_water = 17.27;
+    const b_water = 237.7;
+    const a_ice = 21.875;
+    const b_ice = 265.5;
+    const STEPS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+
+    function getCoefficients(t) {
+        return t >= 0 ? { a: a_water, b: b_water } : { a: a_ice, b: b_ice };
+    }
+
+    function getSaturationPressure(t) {
+        const { a, b } = getCoefficients(t);
+        return 6.112 * Math.exp((a * t) / (b + t));
+    }
+
+    function calcAH(t, rh) {
+        const p_sat = getSaturationPressure(t);
+        const p_vap = p_sat * (rh / 100);
+        return 216.7 * (p_vap / (t + 273.15));
+    }
+
+    function calcDewPoint(t, rh) {
+        const { a, b } = getCoefficients(t);
+        const gamma = Math.log(rh / 100) + (a * t) / (b + t);
+        return (b * gamma) / (a - gamma);
+    }
+
+    function setupSync(sliderId, inputId, isTemp) {
+        const slider = document.getElementById(sliderId);
+        const input = document.getElementById(inputId);
+        slider.addEventListener('input', function() {
+            input.value = isTemp ? parseFloat(this.value).toFixed(1) : this.value;
+            updateAll();
+        });
+        input.addEventListener('input', function() {
+            if (this.value === '' || isNaN(parseFloat(this.value))) return;
+            let val = parseFloat(this.value);
+            if (isTemp) {
+                if (val < -50) val = -50;
+                if (val > 50) val = 50;
+            } else {
+                if (val < 1) val = 1;
+                if (val > 100) val = 100;
+            }
+            slider.value = val;
+            updateAll();
+        });
+    }
+
+    setupSync('tASlider', 'tAInput', true);
+    setupSync('hASlider', 'hAInput', false);
+    setupSync('tBSlider', 'tBInput', true);
+    setupSync('hBSlider', 'hBInput', false);
+
+    function copyValues(source, target) {
+        document.getElementById(`t${target}Slider`).value = document.getElementById(`t${source}Slider`).value;
+        document.getElementById(`t${target}Input`).value = document.getElementById(`t${source}Input`).value;
+        document.getElementById(`h${target}Slider`).value = document.getElementById(`h${source}Slider`).value;
+        document.getElementById(`h${target}Input`).value = document.getElementById(`h${source}Input`).value;
+        updateAll();
+    }
+
+    function getScaleMax(val1, val2) {
+        const maxVal = Math.max(val1, val2);
+        if (maxVal <= 0) return STEPS[0];
+        const target = maxVal * 1.05;
+        for (let step of STEPS) {
+            if (step >= target) return step;
+        }
+        return STEPS[STEPS.length - 1];
+    }
+
+    function updateGauge(zone, value, scaleMax) {
+        const fillEl = document.getElementById(`gaugeFill${zone}`);
+        const maxLabelEl = document.getElementById(`gaugeMaxLabel${zone}`);
+        let percent = (value / scaleMax) * 100;
+        if (percent > 100) percent = 100;
+        if (percent < 0) percent = 0;
+        fillEl.style.height = percent + '%';
+        maxLabelEl.textContent = `макс. ${scaleMax} г`;
+
+        const markers = [
+            { id: `marker${zone}7`, val: 7 },
+            { id: `marker${zone}15`, val: 15 },
+            { id: `marker${zone}25`, val: 25 }
+        ];
+        markers.forEach(m => {
+            const el = document.getElementById(m.id);
+            let bottomPercent = (m.val / scaleMax) * 100;
+            if (bottomPercent > 100) {
+                el.style.display = 'none';
+            } else {
+                el.style.display = 'block';
+                el.style.bottom = bottomPercent + '%';
+            }
+        });
+    }
+
+    function updateDewPoint(zone, t, rh) {
+        const dewPointEl = document.getElementById(`dewPoint${zone}`);
+        const riskDotEl = document.getElementById(`riskDot${zone}`);
+        
+        const td = calcDewPoint(t, rh);
+        dewPointEl.textContent = td.toFixed(1) + '°C';
+
+        const delta = t - td;
+        
+        riskDotEl.classList.remove('low', 'mid', 'high');
+        let title = '';
+        
+        if (delta > 5) {
+            riskDotEl.classList.add('low');
+            title = `До точки росы ${delta.toFixed(1)}°C — конденсат маловероятен`;
+        } else if (delta > 2) {
+            riskDotEl.classList.add('mid');
+            title = `До точки росы ${delta.toFixed(1)}°C — близко к конденсату`;
+        } else {
+            riskDotEl.classList.add('high');
+            title = `До точки росы ${delta.toFixed(1)}°C — высокий риск конденсата`;
+        }
+        
+        riskDotEl.title = title;
+    }
+
+    // Инициализация случайных позиций капель (один раз при загрузке)
+    function initDroplets() {
+        document.querySelectorAll('.droplet').forEach(d => {
+            d.style.top = (10 + Math.random() * 80) + '%';
+            const size = 2 + Math.random() * 2.5;
+            d.style.width = size + 'px';
+            d.style.height = size + 'px';
+            d.dataset.delayFactor = Math.random();
+        });
+    }
+
+    // Обновление задержек капель под текущую скорость
+    function updateDropletDelays() {
+        document.querySelectorAll('.droplet').forEach(d => {
+            const factor = parseFloat(d.dataset.delayFactor || Math.random());
+            d.style.animationDelay = `calc(var(--flow-duration, 1.5s) * ${factor})`;
+        });
+    }
+
+    // Управление потоком капель
+    function updateFlow(rA, rB, absDiff) {
+        const flowLeftEl = document.getElementById('flowLeft');
+        const flowRightEl = document.getElementById('flowRight');
+
+        // Сброс классов
+        flowLeftEl.classList.remove('active', 'right-flow', 'left-flow');
+        flowRightEl.classList.remove('active', 'right-flow', 'left-flow');
+
+        if (!flowEnabled || absDiff < 0.01) return;
+
+        // Определяем направление
+        const flowClass = rA > rB ? 'right-flow' : 'left-flow';
+
+        const duration = Math.max(0.6, 2.5 - absDiff * 0.15);
+        const opacity = Math.min(1, 0.3 + absDiff * 0.1);
+
+        // Активируем ОБЕ зоны с одинаковым направлением
+        [flowLeftEl, flowRightEl].forEach(el => {
+            el.style.setProperty('--flow-duration', duration + 's');
+            el.style.opacity = opacity;
+            el.classList.add('active', flowClass);
+        });
+
+        // Плотность: от 12 до 48 капель в каждой зоне
+        const dropletCount = Math.min(48, Math.max(12, Math.round(absDiff * 8)));
+        [flowLeftEl, flowRightEl].forEach(el => {
+            const droplets = el.querySelectorAll('.droplet');
+            droplets.forEach((d, i) => {
+                d.style.display = i < dropletCount ? 'block' : 'none';
+            });
+        });
+
+        updateDropletDelays();
+    }
+
+    function updateAll() {
+        let tA = parseFloat(document.getElementById('tAInput').value);
+        let hA = parseFloat(document.getElementById('hAInput').value);
+        let rA = calcAH(tA, hA);
+        document.getElementById('resultA').textContent = rA.toFixed(2);
+        updateDewPoint('A', tA, hA);
+
+        let tB = parseFloat(document.getElementById('tBInput').value);
+        let hB = parseFloat(document.getElementById('hBInput').value);
+        let rB = calcAH(tB, hB);
+        document.getElementById('resultB').textContent = rB.toFixed(2);
+        updateDewPoint('B', tB, hB);
+
+        const scaleMax = getScaleMax(rA, rB);
+        updateGauge('A', rA, scaleMax);
+        updateGauge('B', rB, scaleMax);
+
+        let diff = rA - rB;
+        let absDiff = Math.abs(diff);
+        document.getElementById('diffValue').textContent = absDiff.toFixed(2);
+        
+        const diffDescEl = document.getElementById('diffDescription');
+        const diffValueEl = document.getElementById('diffValue');
+        const diffSignEl = document.getElementById('diffSign');
+
+        if (absDiff < 0.01) {
+            diffDescEl.textContent = "Значения равны";
+            diffValueEl.style.color = "#4cd964";
+            diffSignEl.textContent = "=";
+        } else {
+            diffValueEl.style.color = "#ffcc00";
+            diffSignEl.textContent = "";
+            if (diff > 0) {
+                diffDescEl.textContent = "В Зоне А воздух влажнее";
+            } else {
+                diffDescEl.textContent = "В Зоне Б воздух влажнее";
+            }
+        }
+
+        updateFlow(rA, rB, absDiff);
+    }
+
+    // Запуск
+    initDroplets();
+    updateDropletDelays();
+    updateAll();
+
+    // --- Управление видимостью потока ---
+    const flowToggle = document.getElementById('flowToggle');
+    const diffBox = document.querySelector('.diff-box');
+
+    // Инициализация: поток выключен
+    diffBox.classList.add('flow-disabled');
+
+    flowToggle.addEventListener('click', () => {
+        flowEnabled = !flowEnabled;
+        if (flowEnabled) {
+            diffBox.classList.remove('flow-disabled');
+            flowToggle.classList.add('active');
+        } else {
+            diffBox.classList.add('flow-disabled');
+            flowToggle.classList.remove('active');
+        }
+        updateAll();
+    });
+</script>
+
+</body>
+</html>
