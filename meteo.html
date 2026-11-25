@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Погода</title>
+<style>
+  :root {
+    --bg: #0f1523;
+    --card: #1a2236;
+    --card2: #222c45;
+    --text: #e8edf6;
+    --muted: #8fa0bd;
+    --accent: #5aa9ff;
+    --accent2: #7fd4a0;
+    --warn: #ffb35a;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(180deg, #0f1523 0%, #141b2e 100%);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 12px;
+    padding-bottom: 40px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; font-weight: 700; margin: 10px 0 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 14px; }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.25);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between; /* или flex-end, если график — последний элемент */
+  }
+  label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  input {
+    width: 100%;
+    padding: 11px 12px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid #33405e;
+    background: var(--card2);
+    color: var(--text);
+    outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+
+  /* Поиск города */
+  .search-wrap { position: relative; }
+  .search-results {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: var(--card2);
+    border: 1px solid #33405e;
+    border-radius: 10px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 10;
+    display: none;
+  }
+  .search-results.open { display: block; }
+  .search-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .search-item:last-child { border-bottom: none; }
+  .search-item:hover { background: rgba(90,169,255,.12); }
+  .search-item .sub { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+  .search-empty { padding: 10px 12px; font-size: 0.85rem; color: var(--muted); }
+  .day-meta {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: center;
+  }
+  .day-meta span { white-space: nowrap; }
+.search-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;   /* на узком экране — перенос */
+}
+.search-row .search-wrap { flex: 1 1 200px; min-width: 0; }
+.search-row .day-meta { flex: 0 0 auto; margin-top: 0; }
+
+  /* Ошибка */
+  .error {
+    display: none;
+    background: rgba(255,90,90,.12);
+    border: 1px solid rgba(255,90,90,.4);
+    color: #ff9b9b;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  
+.now-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* десктоп: две колонки */
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.now-row > .card { margin-bottom: 0; }
+
+@media (max-width: 640px) {
+  .now-row { grid-template-columns: 1fr; }  /* мобильный: одна колонка */
+}
+
+  /* Сейчас */
+  .now-place { font-size: 0.85rem; color: var(--accent); margin-bottom: 10px; font-weight: 600; }
+  .now-top { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .now-icon { font-size: 3.4rem; line-height: 1; }
+  .now-temp { font-size: 3rem; font-weight: 700; letter-spacing: -1px; }
+  .now-desc { color: var(--muted); font-size: 0.95rem; }
+  .now-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .metric { background: var(--card2); border-radius: 12px; padding: 10px 12px; }
+  .metric .k { font-size: 0.72rem; color: var(--muted); }
+  .metric .v { font-size: 1.05rem; font-weight: 600; margin-top: 3px; }
+
+  /* График */
+  .spark-title { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+  .spark-svg { display: block; width: 100%; height: 270px; overflow: visible; }
+  .spark-svg text { font-size: 9px; fill: var(--muted); font-family: inherit; }
+
+  /* Аккордеон дней */
+  .days-list { display: flex; flex-direction: column; gap: 8px; }
+  .day-acc {
+    background: var(--card2);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .day-acc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.9rem;
+    gap: 10px;
+  }
+  .day-acc-header .dh-left { display: flex; align-items: center; gap: 10px; }
+  .day-acc-header .dh-icon { font-size: 1.6rem; line-height: 1; }
+  .day-acc-header .dh-name { font-weight: 700; }
+  .day-acc-header .dh-date { font-size: 0.74rem; color: var(--muted); }
+  .day-acc-header .dh-temp { font-weight: 600; margin-left: auto; white-space: nowrap; }
+  .day-acc-header .dh-arrow { color: var(--muted); transition: transform .2s; font-size: 0.8rem; }
+  .day-acc.open .dh-arrow { transform: rotate(180deg); }
+  .day-acc-body { display: none; padding: 0 10px 10px; }
+  .day-acc.open .day-acc-body { display: block; }
+
+  /* Карточки часов */
+  .hour-card {
+    background: rgba(255,255,255,.03);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  .hour-card .hc-time { color: var(--accent); font-weight: 600; font-size: 0.85rem; padding-top: 2px; }
+  .hour-card .hc-main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+    gap: 8px 2px;
+    align-items: start;
+  }
+  .hour-card .hc-cell { display: flex; flex-direction: column; min-width: 0; }
+  .hour-card .hc-cell .k { font-size: 0.66rem; color: var(--muted); line-height: 1.15; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hour-card .hc-cell .v { font-size: 0.82rem; font-weight: 600; color: var(--text); line-height: 1.2; white-space: nowrap; }
+  .hour-card .hc-cell.icon .v { font-size: 1.3rem; line-height: 1; }
+  .hour-card .hc-cell.temp .v { font-size: 1.05rem; }
+
+  @media (max-width: 480px) {
+    .hour-card { grid-template-columns: 44px 1fr; font-size: 0.78rem; padding: 9px 10px; }
+    .hour-card .hc-main { grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 7px 5px; }
+    .hour-card .hc-cell .k { font-size: 0.62rem; }
+    .hour-card .hc-cell .v { font-size: 0.78rem; }
+    .hour-card .hc-cell.icon .v { font-size: 1.15rem; }
+    .hour-card .hc-cell.temp .v { font-size: 0.98rem; }
+  }
+
+  /* Скелетоны */
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  .skel {
+    background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.1) 37%, rgba(255,255,255,.05) 63%);
+    background-size: 400px 100%;
+    animation: shimmer 1.2s infinite linear;
+    border-radius: 8px;
+  }
+  .skel-line { height: 14px; margin-bottom: 8px; }
+  .skel-hour { height: 70px; margin-bottom: 6px; border-radius: 10px; }
+  .skel-day { height: 60px; border-radius: 12px; }
+
+  .info { color: var(--muted); font-size: 0.75rem; text-align: center; margin-top: 8px; }
+
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+    .card { padding: 13px; }
+    .now-temp { font-size: 2.6rem; }
+    .now-icon { font-size: 3rem; }
+    .hour-card { grid-template-columns: 44px 1fr; font-size: 0.78rem; }
+    .hour-card .hc-item { font-size: 0.76rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Погода</h1>
+  <div class="subtitle">Данные: Open-Meteo</div>
+
+  <div id="error" class="error" role="alert"></div>
+
+  <!-- Поиск города -->
+  <div class="card">
+    <label for="citySearch">Город</label>
+	<div class="search-row">
+		<div class="search-wrap">
+			<input type="text" id="citySearch" placeholder="Тверь" autocomplete="off">
+			<div class="search-results" id="searchResults"></div>
+		</div>
+		<div class="day-meta" id="dayMeta"></div>
+    </div>
+  </div>
+
+	<div class="now-row">
+	  <!-- Сейчас -->
+	  <div class="card">
+		<div class="now-place" id="nowPlace"></div>
+		<div class="now-top" aria-live="polite">
+		  <div class="now-icon" id="nowIcon">⏳</div>
+		  <div>
+			<div class="now-temp"><span id="nowTemp">—</span></div>
+			<div class="now-desc" id="nowDesc">загрузка…</div>
+		  </div>
+		</div>
+		<div class="now-grid" id="nowGrid"></div>
+	  </div>
+
+	  <!-- График 5 дней -->
+	  <div class="card">
+		<div class="spark-title">Прогноз на 7 дней</div>
+		<div id="spark"></div>
+	  </div>
+	</div>
+
+  <!-- 16 дней аккордеон -->
+  <div class="card">
+    <div style="font-size:0.9rem; margin-bottom:10px;">Подробный прогноз на 16 дней</div>
+    <div class="days-list" id="daysList"></div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+
+// ---------- Константы ----------
+const TVER = { name: "Тверь", lat: 56.8587, lon: 35.9176 };
+let currentCity = { ...TVER };
+
+const WMO = {
+  0: ["Ясно", "☀️", "🌙"],
+  1: ["Преимущественно ясно", "🌤️", "🌙"],
+  2: ["Переменная облачность", "⛅", "☁️"],
+  3: ["Пасмурно", "☁️", "☁️"],
+  45: ["Туман", "🌫️", "🌫️"],
+  48: ["Изморозь", "🌫️", "🌫️"],
+  51: ["Слабая морось", "🌦️", "🌧️"],
+  53: ["Морось", "🌦️", "🌧️"],
+  55: ["Сильная морось", "🌧️", "🌧️"],
+  56: ["Ледяная морось", "🌧️", "🌧️"],
+  57: ["Сильная ледяная морось", "🌧️", "🌧️"],
+  61: ["Слабый дождь", "🌦️", "🌧️"],
+  63: ["Дождь", "🌧️", "🌧️"],
+  65: ["Сильный дождь", "🌧️", "🌧️"],
+  66: ["Ледяной дождь", "🌧️", "🌧️"],
+  67: ["Сильный ледяной дождь", "🌧️", "🌧️"],
+  71: ["Слабый снег", "🌨️", "🌨️"],
+  73: ["Снег", "🌨️", "🌨️"],
+  75: ["Сильный снег", "❄️", "❄️"],
+  77: ["Снежные зёрна", "🌨️", "🌨️"],
+  80: ["Слабый ливень", "🌦️", "🌧️"],
+  81: ["Ливень", "🌧️", "🌧️"],
+  82: ["Сильный ливень", "⛈️", "⛈️"],
+  85: ["Снегопад", "🌨️", "🌨️"],
+  86: ["Сильный снегопад", "❄️", "❄️"],
+  95: ["Гроза", "⛈️", "⛈️"],
+  96: ["Гроза с градом", "⛈️", "⛈️"],
+  99: ["Сильная гроза с градом", "⛈️", "⛈️"],
+};
+function wmo(code, isDay = 1) {
+  const w = WMO[code];
+  if (!w) return ["Неизвестно", "❓"];
+  return [w[0], isDay ? w[1] : w[2]];
+}
+
+const DIRS = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"];
+function windDir(deg) {
+  if (deg == null || !isFinite(deg)) return "—";
+  return DIRS[Math.round(deg / 45) % 8];
+}
+
+function windArrow(deg) {
+  if (deg == null || !isFinite(deg)) return "—";
+  // стрелка показывает, ОТКУДА дует ветер
+  const arrows = ["↓","↙","←","↖","↑","↗","→","↘"];
+  const i = Math.round((deg % 360) / 45) % 8;
+  return arrows[i];
+}
+
+const WDAYS = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
+// ---------- DOM ----------
+const elError = document.getElementById("error");
+const elCitySearch = document.getElementById("citySearch");
+const elSearchResults = document.getElementById("searchResults");
+const elDayMeta = document.getElementById("dayMeta");
+const elNowPlace = document.getElementById("nowPlace");
+const elNowIcon = document.getElementById("nowIcon");
+const elNowTemp = document.getElementById("nowTemp");
+const elNowDesc = document.getElementById("nowDesc");
+const elNowGrid = document.getElementById("nowGrid");
+const elSpark = document.getElementById("spark");
+const elDaysList = document.getElementById("daysList");
+
+// ---------- Geocoding ----------
+let searchTimer = null;
+elCitySearch.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const q = elCitySearch.value.trim();
+  if (q.length < 2) { closeResults(); return; }
+  searchTimer = setTimeout(() => doGeocode(q), 400);
+});
+
+async function doGeocode(q) {
+  try {
+    const url = "https://geocoding-api.open-meteo.com/v1/search?name="
+      + encodeURIComponent(q) + "&count=8&language=ru";
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("geocode error");
+    const data = await res.json();
+    const results = data.results || [];
+    if (!results.length) {
+      elSearchResults.innerHTML = '<div class="search-empty">Ничего не найдено</div>';
+      elSearchResults.classList.add("open");
+      return;
+    }
+    elSearchResults.innerHTML = results.map((r, i) => `
+      <div class="search-item" data-idx="${i}">
+        <div>${r.name}</div>
+        <div class="sub">${r.admin1 || ""}${r.country ? ", " + r.country : ""}</div>
+      </div>
+    `).join("");
+    elSearchResults.classList.add("open");
+    elSearchResults.querySelectorAll(".search-item").forEach((item, i) => {
+      item.addEventListener("click", () => {
+        const r = results[i];
+        currentCity = { name: r.name, lat: r.latitude, lon: r.longitude };
+        elCitySearch.value = r.name;
+        closeResults();
+        loadData();
+      });
+    });
+  } catch (e) {
+    closeResults();
+  }
+}
+function closeResults() {
+  elSearchResults.classList.remove("open");
+  elSearchResults.innerHTML = "";
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".search-wrap")) closeResults();
+});
+
+// ---------- Загрузка ----------
+let abortCtrl = null;
+function showError(msg) { elError.textContent = msg; elError.style.display = "block"; }
+function hideError() { elError.style.display = "none"; }
+
+async function loadData() {
+  hideError();
+  elNowPlace.textContent = currentCity.name;
+  renderSkeleton();
+
+  if (abortCtrl) abortCtrl.abort();
+  abortCtrl = new AbortController();
+
+  const hourlyVars = [
+    "temperature_2m","apparent_temperature","relative_humidity_2m",
+    "dew_point_2m","precipitation","precipitation_probability",
+    "weather_code","wind_speed_10m","wind_direction_10m","wind_gusts_10m",
+    "surface_pressure","snow_depth","visibility","cloud_cover"
+  ].join(",");
+  const dailyVars = [
+    "weather_code","temperature_2m_max","temperature_2m_min",
+    "apparent_temperature_max","apparent_temperature_min",
+    "precipitation_sum","precipitation_hours","precipitation_probability_max",
+    "wind_speed_10m_max","wind_gusts_10m_max","wind_direction_10m_dominant",
+    "snowfall_sum","snow_depth_max",
+    "sunrise","sunset","daylight_duration"
+  ].join(",");
+  const currentVars = [
+    "temperature_2m","apparent_temperature","weather_code","is_day",
+    "wind_speed_10m","wind_direction_10m","wind_gusts_10m",
+    "relative_humidity_2m","precipitation","surface_pressure"
+  ].join(",");
+
+  const params = new URLSearchParams({
+    latitude: currentCity.lat,
+    longitude: currentCity.lon,
+    current: currentVars,
+    hourly: hourlyVars,
+    daily: dailyVars,
+    timezone: "auto",
+    wind_speed_unit: "ms",
+    forecast_days: "16",
+  });
+
+  try {
+    const res = await fetch("https://api.open-meteo.com/v1/forecast?" + params, { signal: abortCtrl.signal });
+    if (!res.ok) {
+      let msg = "Ошибка API (" + res.status + ")";
+      try { const j = await res.json(); if (j.reason) msg += ": " + j.reason; } catch (e) {}
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    if (!data.current || !data.hourly || !data.daily) throw new Error("Неожиданный формат ответа.");
+    renderAll(data);
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    showError("Не удалось получить прогноз: " + err.message);
+  }
+}
+
+// ---------- Скелетоны ----------
+function renderSkeleton() {
+  elNowIcon.textContent = "";
+  elNowTemp.textContent = "—";
+  elNowDesc.textContent = "";
+  elNowGrid.innerHTML = '<div class="skel skel-line" style="width:70%"></div><div class="skel skel-line" style="width:50%"></div>';
+  elSpark.innerHTML = '<div class="skel" style="height:130px;"></div>';
+  elDaysList.innerHTML = Array.from({length: 4}, () => '<div class="skel skel-day"></div>').join("");
+}
+
+let lastTzOffset = 0;
+let lastSun = { rise: null, set: null, dur: null };
+let metaTimer = null;
+
+function fmtHM(sec) {
+  if (sec == null || !isFinite(sec)) return "—";
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+}
+
+function localNowHM() {
+  const d = new Date(Date.now() + lastTzOffset * 1000);
+  const hh = d.getUTCHours();
+  const mm = d.getUTCMinutes();
+  return String(hh).padStart(2, "0") + ":" + String(mm).padStart(2, "0");
+}
+
+function renderDayMeta() {
+  const nowStr = localNowHM();
+  const riseStr = lastSun.rise ? lastSun.rise.slice(11, 16) : "—";
+  const setStr  = lastSun.set  ? lastSun.set.slice(11, 16)  : "—";
+  const durStr  = lastSun.dur != null ? fmtHM(lastSun.dur) : "—";
+  elDayMeta.innerHTML =
+    `<span>🕒 ${nowStr}</span>` +
+    `<span>☀️ ${riseStr}</span>` +
+    `<span>🌙 ${setStr}</span>` +
+    `<span>⏳ ${durStr}</span>`;
+}
+
+function startMetaTimer() {
+  if (metaTimer) clearInterval(metaTimer);
+  renderDayMeta();
+  metaTimer = setInterval(renderDayMeta, 60 * 1000);
+}
+
+// ---------- Отрисовка ----------
+function renderAll(data) {
+  lastTzOffset = data.utc_offset_seconds || 0;
+  const d0 = data.daily;
+  lastSun = {
+    rise: d0.sunrise?.[0] ?? null,
+    set:  d0.sunset?.[0] ?? null,
+    dur:  d0.daylight_duration?.[0] ?? null,
+  };
+  startMetaTimer();
+
+  renderCurrent(data.current);
+  renderSpark(data.hourly);
+  renderDays(data);
+}
+
+function renderCurrent(cur) {
+  const [desc, icon] = wmo(cur.weather_code, cur.is_day);
+  elNowIcon.textContent = icon;
+  elNowTemp.textContent = Math.round(cur.temperature_2m) + "°";
+  elNowDesc.textContent = desc;
+
+  const metrics = [];
+  if (cur.apparent_temperature != null) metrics.push(["Ощущается", Math.round(cur.apparent_temperature) + "°"]);
+  if (cur.wind_speed_10m != null) metrics.push(["Ветер", Math.round(cur.wind_speed_10m) + " м/с, " + windDir(cur.wind_direction_10m)]);
+  if (cur.wind_gusts_10m != null) metrics.push(["Порывы", Math.round(cur.wind_gusts_10m) + " м/с"]);
+  if (cur.surface_pressure != null) metrics.push(["Давление", Math.round(cur.surface_pressure * 0.750062) + " мм рт.ст."]);
+  if (cur.relative_humidity_2m != null) metrics.push(["Влажность", Math.round(cur.relative_humidity_2m) + "%"]);
+  if (cur.precipitation != null) metrics.push(["Осадки", cur.precipitation.toFixed(1) + " мм"]);
+
+  elNowGrid.innerHTML = metrics.map(m =>
+    '<div class="metric"><div class="k">' + m[0] + '</div><div class="v">' + m[1] + "</div></div>"
+  ).join("");
+}
+
+// ---------- График 7 дней (каждые 3 часа = 56 точек) ----------
+function renderSpark(h) {
+  const nowIso = new Date().toISOString().slice(0, 13);
+  const idxStart = h.time.findIndex(t => t.slice(0, 13) >= nowIso);
+  if (idxStart < 0) { elSpark.innerHTML = ""; return; }
+
+  // Готовим точки: для температуры (56 точек) и для осадков (по дням), всего 168 часов
+  const points = [];
+  const dailyPrecip = {}; // { 'YYYY-MM-DD': сумма_мм }
+
+  for (let i = 0; i < 168; i += 3) {
+    const idx = idxStart + i;
+    if (idx >= h.time.length) break;
+    const t = h.time[idx];
+    const day = t.slice(0, 10);
+    
+    points.push({ t, v: h.temperature_2m[idx], day });
+    
+    // Суммируем осадки за текущие 3 часа (т.к. мы идём с шагом 3)
+    if (!dailyPrecip[day]) dailyPrecip[day] = 0;
+    const p = h.precipitation?.[idx];
+    if (p != null) dailyPrecip[day] += p;
+  }
+  
+  if (points.length < 2) { elSpark.innerHTML = ""; return; }
+
+  const days = [...new Set(points.map(p => p.day))];
+
+  // Габариты
+  const W = 320;
+  const midH = 110; // фиксированная высота графика температуры
+  const gapH = 70;  // желаемый отступ между графиками
+  const bottomH = 50; // фиксированная высота столбиков осадков
+  const PADL = 34, PADR = 10, PADT = 16, PADB = 28;
+  
+  // Общая высота H теперь вычисляется автоматически
+  const H = PADT + midH + gapH + bottomH + PADB;
+  
+  // 1. Расчёт температуры
+  const vals = points.map(p => p.v);
+  const vmin = Math.min(...vals);
+  const vmax = Math.max(...vals);
+  const span = Math.max(vmax - vmin, 1);
+  
+  const iw = W - PADL - PADR;
+  
+  const x = i => PADL + (i / (points.length - 1)) * iw;
+  const y = v => PADT + (1 - (v - vmin) / span) * midH;
+
+  const path = points.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(p.v).toFixed(1)).join(" ");
+
+  // 2. Горизонтальные линии температуры
+  let hLines = "";
+  const hStep = span > 30 ? 10 : span > 15 ? 5 : 2;
+  const hFirst = Math.ceil(vmin / hStep) * hStep;
+  for (let v = hFirst; v <= vmax; v += hStep) {
+    const yy = y(v).toFixed(1);
+    const isZero = v === 0;
+    hLines += `<line x1="${PADL}" y1="${yy}" x2="${W - PADR}" y2="${yy}" stroke="${isZero ? "rgba(255,255,255,.35)" : "rgba(255,255,255,.08)"}" stroke-width="${isZero ? 1.5 : 1}"${isZero ? ' stroke-dasharray="3 3"' : ""}/>`;
+    hLines += `<text x="${PADL - 6}" y="${(Number(yy) + 3).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,.45)">${v}°</text>`;
+  }
+
+  // 3. Вертикальные линии дней
+  let gridLines = "";
+  const dayXPositions = {}; // { 'YYYY-MM-DD': [x1, x2] }
+  
+  points.forEach((p, i) => {
+    if (!dayXPositions[p.day]) dayXPositions[p.day] = [];
+    dayXPositions[p.day].push(x(i));
+  });
+
+  days.forEach((day, di) => {
+    const xArr = dayXPositions[day];
+    const xStart = xArr[0];
+    const xEnd = xArr[xArr.length - 1];
+    if (di > 0) {
+      gridLines += `<line x1="${xStart.toFixed(1)}" y1="${PADT}" x2="${xStart.toFixed(1)}" y2="${H - PADB}" stroke="rgba(255,255,255,.1)" stroke-width="1"/>`;
+    }
+    dayXPositions[day].mid = (xStart + xEnd) / 2;
+  });
+
+  // 4. Подписи дней (внизу)
+  let dayLabels = "";
+  days.forEach(day => {
+    const dt = new Date(day + "T00:00:00");
+    const label = WDAYS[dt.getDay()] + " " + dt.getDate();
+    dayLabels += `<text x="${dayXPositions[day].mid.toFixed(1)}" y="${H - 6}" text-anchor="middle">${label}</text>`;
+  });
+
+  // 5. Осадки (столбики)
+  const pVals = Object.values(dailyPrecip);
+  const pMax = Math.max(...pVals, 1); // чтобы не делить на 0
+  
+  let pBars = "";
+  const barWidth = iw / days.length * 0.5; // 50% от ширины дня
+  
+  days.forEach(day => {
+    const val = dailyPrecip[day] || 0;
+    const barH = (val / pMax) * bottomH;
+    const xMid = dayXPositions[day].mid;
+    
+    // Столбик
+    pBars += `<rect x="${(xMid - barWidth / 2).toFixed(1)}" y="${(H - PADB - barH).toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(barH, 1).toFixed(1)}" fill="#5aa9ff" rx="2"/>`;
+    
+    // Значение над столбиком
+    pBars += `<text x="${xMid.toFixed(1)}" y="${(H - PADB - barH - 4).toFixed(1)}" text-anchor="middle" fill="#5aa9ff" font-size="9">${val.toFixed(1)}</text>`;
+  });
+
+  // 6. Точки экстремумов
+  const maxIdx = vals.indexOf(vmax);
+  const minIdx = vals.indexOf(vmin);
+  let extrema = "";
+  extrema += `<circle cx="${x(maxIdx).toFixed(1)}" cy="${y(vmax).toFixed(1)}" r="3" fill="#ffb35a"/>`;
+  extrema += `<text x="${x(maxIdx).toFixed(1)}" y="${(y(vmax) - 6).toFixed(1)}" text-anchor="middle" fill="#ffb35a">${Math.round(vmax)}°</text>`;
+  extrema += `<circle cx="${x(minIdx).toFixed(1)}" cy="${y(vmin).toFixed(1)}" r="3" fill="#7fd4a0"/>`;
+  extrema += `<text x="${x(minIdx).toFixed(1)}" y="${(y(vmin) + 13).toFixed(1)}" text-anchor="middle" fill="#7fd4a0">${Math.round(vmin)}°</text>`;
+
+  // 7. Сборка SVG
+  elSpark.innerHTML = `
+    <svg class="spark-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      ${hLines}
+      ${gridLines}
+      <path d="${path}" fill="none" stroke="#5aa9ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${extrema}
+      ${pBars}
+      ${dayLabels}
+    </svg>
+  `;
+}
+
+// ---------- Аккордеон дней ----------
+function renderDays(data) {
+  const h = data.hourly;
+  const d = data.daily;
+  elDaysList.innerHTML = "";
+
+  const nowHour = new Date().toISOString().slice(0, 13);
+
+  d.time.forEach((dayStr, di) => {
+    const dt = new Date(dayStr + "T00:00:00");
+    const isToday = di === 0;
+    const dname = isToday ? "Сегодня" : WDAYS[dt.getDay()];
+    const ddate = dt.getDate() + " " + MONTHS[dt.getMonth()];
+    const [desc, icon] = wmo(d.weather_code[di], 1);
+    const tmin = Math.round(d.temperature_2m_min[di]);
+    const tmax = Math.round(d.temperature_2m_max[di]);
+
+    // заголовок
+    const header = document.createElement("div");
+    header.className = "day-acc-header";
+    header.innerHTML = `
+      <div class="dh-left">
+        <div class="dh-icon">${icon}</div>
+        <div>
+          <div class="dh-name">${dname}</div>
+          <div class="dh-date">${ddate}</div>
+        </div>
+      </div>
+      <div class="dh-temp">${tmin}° / ${tmax}°</div>
+      <div class="dh-arrow">▼</div>
+    `;
+
+    // тело
+    const body = document.createElement("div");
+    body.className = "day-acc-body";
+
+    // собираем часы этого дня
+    const hours = [];
+    h.time.forEach((t, hi) => {
+      if (t.slice(0, 10) !== dayStr) return;
+      const hh = +t.slice(11, 13);
+      // первые 5 дней — каждый час, остальные — каждые 3 часа (0,3,6...)
+      if (di >= 5 && hh % 3 !== 0) return;
+      hours.push({ t, hi, hh });
+    });
+
+    // пропускаем прошедшие часы сегодня
+    const filtered = hours.filter(x => x.t.slice(0, 13) >= nowHour);
+
+    if (!filtered.length) {
+      body.innerHTML = '<div style="padding:10px;color:var(--muted);font-size:0.85rem;">Нет данных</div>';
+    } else {
+      filtered.forEach(({ t, hi, hh }) => {
+        const isDay = hh >= 8 && hh < 21 ? 1 : 0;
+        const [, hIcon] = wmo(h.weather_code[hi], isDay);
+        const temp = Math.round(h.temperature_2m[hi]);
+        const feels = h.apparent_temperature?.[hi] != null ? Math.round(h.apparent_temperature[hi]) + "°" : "—";
+        const wind = h.wind_speed_10m?.[hi] != null ? Math.round(h.wind_speed_10m[hi]) + " м/с" : "—";
+        const wdir = h.wind_direction_10m?.[hi] != null ? windArrow(h.wind_direction_10m[hi]) : "—";
+        const gust = h.wind_gusts_10m?.[hi] != null ? Math.round(h.wind_gusts_10m[hi]) + " м/с" : "—";
+        const precip = h.precipitation?.[hi] != null ? h.precipitation[hi].toFixed(1) + " мм" : "—";
+        const prob = h.precipitation_probability?.[hi] != null ? h.precipitation_probability[hi] + "%" : "—";
+        const snow = h.snow_depth?.[hi] != null ? Math.round(h.snow_depth[hi] * 100) + " см" : "—";
+        const hum = h.relative_humidity_2m?.[hi] != null ? Math.round(h.relative_humidity_2m[hi]) + "%" : "—";
+        const press = h.surface_pressure?.[hi] != null ? Math.round(h.surface_pressure[hi] * 0.750062) + " мм" : "—";
+        const dew = h.dew_point_2m?.[hi] != null ? Math.round(h.dew_point_2m[hi]) + "°" : "—";
+
+        body.innerHTML += `
+          <div class="hour-card">
+            <div class="hc-time">${String(hh).padStart(2, "0")}:00</div>
+            <div class="hc-main">
+              <div class="hc-cell icon"><div class="k">&nbsp;</div><div class="v">${hIcon}</div></div>
+              <div class="hc-cell temp"><div class="k">темп.</div><div class="v">${temp}°</div></div>
+              <div class="hc-cell"><div class="k">ощущ.</div><div class="v">${feels}</div></div>
+              <div class="hc-cell"><div class="k">ветер</div><div class="v">${wdir} ${wind}</div></div>
+              <div class="hc-cell"><div class="k">порывы</div><div class="v">${gust}</div></div>
+              <div class="hc-cell"><div class="k">осадки</div><div class="v">${precip}</div></div>
+              <div class="hc-cell"><div class="k">вероятн.</div><div class="v">${prob}</div></div>
+              <div class="hc-cell"><div class="k">снег</div><div class="v">${snow}</div></div>
+              <div class="hc-cell"><div class="k">влажн.</div><div class="v">${hum}</div></div>
+              <div class="hc-cell"><div class="k">давл.</div><div class="v">${press}</div></div>
+              <div class="hc-cell"><div class="k">т.росы</div><div class="v">${dew}</div></div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    const acc = document.createElement("div");
+	acc.className = "day-acc";
+    acc.appendChild(header);
+    acc.appendChild(body);
+    header.addEventListener("click", () => acc.classList.toggle("open"));
+    elDaysList.appendChild(acc);
+  });
+}
+
+// ---------- Запуск ----------
+elCitySearch.value = TVER.name;
+loadData();
+</script>
+</body>
+</html>
